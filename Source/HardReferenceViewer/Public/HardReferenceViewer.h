@@ -7,6 +7,9 @@
 
 class FToolBarBuilder;
 class FMenuBuilder;
+class FWorkflowAllowedTabSet;
+class FBlueprintEditor;
+class FAssetEditorToolkit;
 
 class FHardReferenceViewerModule : public IModuleInterface
 {
@@ -16,15 +19,8 @@ public:
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
 	
-	/** This function will be bound to Command (by default it will bring up plugin window) */
-	void PluginButtonClicked();
-	
 private:
+	void RegisterBlueprintTabs(FWorkflowAllowedTabSet& TabManager, FName ModeName, TSharedPtr<FBlueprintEditor> InBlueprintEditor) const;
 
-	void RegisterMenus();
-
-	TSharedRef<class SDockTab> OnSpawnPluginTab(const class FSpawnTabArgs& SpawnTabArgs);
-
-private:
-	TSharedPtr<class FUICommandList> PluginCommands;
+	FDelegateHandle RegisteredHandle;
 };

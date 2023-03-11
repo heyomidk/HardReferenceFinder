@@ -41,7 +41,7 @@ TSharedRef< FSlateStyleSet > FHardReferenceViewerStyle::Create()
 	TSharedRef< FSlateStyleSet > Style = MakeShareable(new FSlateStyleSet("HardReferenceViewerStyle"));
 	Style->SetContentRoot(IPluginManager::Get().FindPlugin("HardReferenceViewer")->GetBaseDir() / TEXT("Resources"));
 
-	Style->Set("HardReferenceViewer.OpenPluginWindow", new IMAGE_BRUSH_SVG(TEXT("PlaceholderButtonIcon"), Icon20x20));
+	Style->Set("HardReferenceViewer.TabIcon", new IMAGE_BRUSH_SVG(TEXT("PlaceholderButtonIcon"), Icon20x20));
 
 	return Style;
 }

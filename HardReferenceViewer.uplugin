@@ -3,7 +3,7 @@
 	"Version": 1,
 	"VersionName": "1.0",
 	"FriendlyName": "HardReferenceViewer",
-	"Description": "Plugin that adds a window displaying nodes in a blueprint causing hard references to other assets.",
+	"Description": "Plugin that shows hard referencing nodes in a blueprint graph.",
 	"Category": "Other",
 	"CreatedBy": "Omid Kiarostami",
 	"CreatedByURL": "",
@@ -18,7 +18,7 @@
 		{
 			"Name": "HardReferenceViewer",
 			"Type": "Editor",
-			"LoadingPhase": "Default"
+			"LoadingPhase": "PostEngineInit"
 		}
 	]
 }

@@ -43,7 +43,7 @@ public class HardReferenceViewer : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
-				// ... add private dependencies that you statically link with here ...	
+				"Kismet",
 			}
 			);
 		
