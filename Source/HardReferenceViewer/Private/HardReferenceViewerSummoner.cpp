@@ -2,6 +2,7 @@
 
 #include "HardReferenceViewerSummoner.h"
 #include "HardReferenceViewerStyle.h"
+#include "BlueprintEditor.h"
 
 #define LOCTEXT_NAMESPACE "FHardReferenceViewerModule"
 
@@ -21,6 +22,8 @@ FHardReferenceViewerSummoner::FHardReferenceViewerSummoner(TSharedPtr<FAssetEdit
 
 TSharedRef<SWidget> FHardReferenceViewerSummoner::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
 {
+	TSharedPtr<FBlueprintEditor> BlueprintEditorPtr = StaticCastSharedPtr<FBlueprintEditor>(HostingApp.Pin());
+
 	return FWorkflowTabFactory::CreateTabBody(Info);
 }
 
