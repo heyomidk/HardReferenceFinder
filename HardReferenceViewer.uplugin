@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "HardReferenceViewer",
+	"Description": "Plugin that adds a window displaying nodes in a blueprint causing hard references to other assets.",
+	"Category": "Other",
+	"CreatedBy": "Omid Kiarostami",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "HardReferenceViewer",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
+		}
+	]
+}
