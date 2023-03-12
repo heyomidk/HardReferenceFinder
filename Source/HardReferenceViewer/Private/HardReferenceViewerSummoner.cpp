@@ -3,6 +3,8 @@
 #include "HardReferenceViewerSummoner.h"
 #include "HardReferenceViewerStyle.h"
 #include "BlueprintEditor.h"
+#include "SSubobjectEditor.h"
+#include "AssetRegistry/AssetRegistryModule.h"
 
 #define LOCTEXT_NAMESPACE "FHardReferenceViewerModule"
 
@@ -22,8 +24,26 @@ FHardReferenceViewerSummoner::FHardReferenceViewerSummoner(TSharedPtr<FAssetEdit
 
 TSharedRef<SWidget> FHardReferenceViewerSummoner::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
 {
-	TSharedPtr<FBlueprintEditor> BlueprintEditorPtr = StaticCastSharedPtr<FBlueprintEditor>(HostingApp.Pin());
+	{
+		// stub code to demonstrates a path to asset data from the blueprint editor 
+		TSharedPtr<FBlueprintEditor> BlueprintEditorPtr = StaticCastSharedPtr<FBlueprintEditor>(HostingApp.Pin());
+		TSharedPtr<SSubobjectEditor> SubobjectEditorPtr = BlueprintEditorPtr->GetSubobjectEditor();
+		SSubobjectEditor* SubobjectEditorWidget = SubobjectEditorPtr.Get();
 
+		UObject* Object = SubobjectEditorWidget->GetObjectContext();
+		FString ObjectPath = Object->GetPathName();
+
+		FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+		FAssetData ExistingAsset = AssetRegistryModule.Get().GetAssetByObjectPath(FSoftObjectPath(ObjectPath));
+
+		TArray<FName> Dependencies;
+		UE::AssetRegistry::FDependencyQuery Flags(UE::AssetRegistry::EDependencyQuery::Hard);
+		AssetRegistryModule.GetDependencies(ExistingAsset.PackageName, Dependencies, UE::AssetRegistry::EDependencyCategory::Package, Flags);
+
+		FText StubText = FText::Format(LOCTEXT("EmptyTabMessage", "This object has {0} references to other packages."), Dependencies.Num());
+		return SNew(STextBlock).Text(StubText);
+	}
+	
 	return FWorkflowTabFactory::CreateTabBody(Info);
 }
 

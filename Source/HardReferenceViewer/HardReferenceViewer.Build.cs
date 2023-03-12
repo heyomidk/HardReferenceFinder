@@ -44,6 +44,8 @@ public class HardReferenceViewer : ModuleRules
 				"Slate",
 				"SlateCore",
 				"Kismet",
+				"SubobjectEditor",
+				"AssetRegistry",
 			}
 			);
 		
