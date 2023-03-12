@@ -40,7 +40,21 @@ TSharedRef<SWidget> FHardReferenceViewerSummoner::CreateTabBody(const FWorkflowT
 		UE::AssetRegistry::FDependencyQuery Flags(UE::AssetRegistry::EDependencyQuery::Hard);
 		AssetRegistryModule.GetDependencies(ExistingAsset.PackageName, Dependencies, UE::AssetRegistry::EDependencyCategory::Package, Flags);
 
-		FText StubText = FText::Format(LOCTEXT("EmptyTabMessage", "This object has {0} references to other packages."), Dependencies.Num());
+		// stub in a calculation of size for dependencies
+		int64 TotalSize = 0;
+		for(const FName& Dependency : Dependencies)
+		{
+			FAssetPackageData AssetPackageData;
+			AssetRegistryModule.TryGetAssetPackageData(Dependency, AssetPackageData);
+
+			TotalSize += AssetPackageData.DiskSize;
+		}
+		
+		// TODO:
+		//		- Find a nice way to format the window
+		//		- Find a way to search the graph for package references
+		
+		FText StubText = FText::Format(LOCTEXT("EmptyTabMessage", "This object has {0} references to other packages. TotalSize={1}"), Dependencies.Num(), TotalSize);
 		return SNew(STextBlock).Text(StubText);
 	}
 	
