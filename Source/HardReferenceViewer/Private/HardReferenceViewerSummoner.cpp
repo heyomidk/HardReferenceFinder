@@ -4,6 +4,7 @@
 #include "HardReferenceViewerStyle.h"
 #include "BlueprintEditor.h"
 #include "K2Node_CallFunction.h"
+#include "K2Node_DynamicCast.h"
 #include "SSubobjectEditor.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 
@@ -60,33 +61,55 @@ TSharedRef<SWidget> FHardReferenceViewerSummoner::CreateTabBody(const FWorkflowT
 			{
 				for (UEdGraphNode* Node : Graph->Nodes)
 				{
+					UPackage* FunctionPackage = nullptr;
 					if(UK2Node_CallFunction* CallFunctionNode = Cast<UK2Node_CallFunction>(Node))
 					{
-						if( UPackage* FunctionPackage = CallFunctionNode->FunctionReference.GetMemberParentPackage() )
+						FunctionPackage = CallFunctionNode->FunctionReference.GetMemberParentPackage();
+					}
+					else if(UK2Node_DynamicCast* CastNode = Cast<UK2Node_DynamicCast>(Node))
+					{
+						if(CastNode->TargetType)
 						{
-							FPackageId PackageId = FunctionPackage->GetPackageId();
-							FString PackagePathName = FunctionPackage->GetPathName(); 
-							FAssetData PackageAssetData = AssetRegistryModule.Get().GetAssetByObjectPath(PackagePathName);
-							if(Dependencies.ContainsByPredicate([PackageAssetData](const FName& ThisName)->bool	{ return ThisName.ToString() == PackageAssetData.PackageName.ToString(); }))
-							{
-								// Really crude, but works for now.  There is a better way to get to this.
-								ReferencingNodes.Add(Node);
-							}
+							FunctionPackage = CastNode->TargetType->GetPackage();
 						}
 					}
-					// @omidk TODO: Also check Cast nodes
+
+					if( FunctionPackage )
+					{
+						FName Name = FunctionPackage->GetFName();
+						if(Dependencies.Contains(Name))
+						{
+							ReferencingNodes.AddUnique(Node);
+						}
+					}
 				}
 			}
 		}
 	}
-	
 
+	TSharedPtr<SVerticalBox> VerticalBox = SNew(SVerticalBox);
+	{
+		FText SummaryText = FText::Format(LOCTEXT("SummaryMessage", "This object has {0} references to other packages. TotalSize={1}"), Dependencies.Num(), TotalSize);
+		VerticalBox->AddSlot()
+		[
+			SNew(STextBlock).Text(SummaryText)
+		];
+	}
+
+	for(UEdGraphNode* Node : ReferencingNodes)
+	{
+		FText EntryText = FText::Format(LOCTEXT("EntryMessage", "Node {0} "), Node->GetNodeTitle(ENodeTitleType::ListView));
+		VerticalBox->AddSlot()
+		[
+			SNew(STextBlock).Text(EntryText)
+		];
+	}
+		
 	// TODO:
+	//		- Figure out how to focus a node in the graph
 	//		- Find a nice way to format the window
-	//		- Find a NICE way to search the graph for package references
-
-	FText StubText = FText::Format(LOCTEXT("EmptyTabMessage", "This object has {0} references to other packages. TotalSize={1}"), Dependencies.Num(), TotalSize);
-	return SNew(STextBlock).Text(StubText);
+	
+	return VerticalBox->AsShared();
 }
 
 FText FHardReferenceViewerSummoner::GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const
