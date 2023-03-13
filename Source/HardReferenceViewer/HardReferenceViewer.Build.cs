@@ -46,6 +46,7 @@ public class HardReferenceViewer : ModuleRules
 				"Kismet",
 				"SubobjectEditor",
 				"AssetRegistry",
+				"BlueprintGraph",
 			}
 			);
 		

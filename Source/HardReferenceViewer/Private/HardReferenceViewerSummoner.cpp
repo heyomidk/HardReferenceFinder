@@ -3,6 +3,9 @@
 #include "HardReferenceViewerSummoner.h"
 #include "HardReferenceViewerStyle.h"
 #include "BlueprintEditor.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_DynamicCast.h"
+#include "SEditorViewportToolBarMenu.h"
 #include "SSubobjectEditor.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 
@@ -24,27 +27,118 @@ FHardReferenceViewerSummoner::FHardReferenceViewerSummoner(TSharedPtr<FAssetEdit
 
 TSharedRef<SWidget> FHardReferenceViewerSummoner::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
 {
+	TSharedPtr<FBlueprintEditor> BlueprintEditorPtr = StaticCastSharedPtr<FBlueprintEditor>(HostingApp.Pin());
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+
+	// Get this blueprints package dependencies from the blueprint editor 
+	TArray<FName> PackageDependencies;
 	{
-		// stub code to demonstrates a path to asset data from the blueprint editor 
-		TSharedPtr<FBlueprintEditor> BlueprintEditorPtr = StaticCastSharedPtr<FBlueprintEditor>(HostingApp.Pin());
 		TSharedPtr<SSubobjectEditor> SubobjectEditorPtr = BlueprintEditorPtr->GetSubobjectEditor();
 		SSubobjectEditor* SubobjectEditorWidget = SubobjectEditorPtr.Get();
 
 		UObject* Object = SubobjectEditorWidget->GetObjectContext();
 		FString ObjectPath = Object->GetPathName();
 
-		FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 		FAssetData ExistingAsset = AssetRegistryModule.Get().GetAssetByObjectPath(FSoftObjectPath(ObjectPath));
 
-		TArray<FName> Dependencies;
 		UE::AssetRegistry::FDependencyQuery Flags(UE::AssetRegistry::EDependencyQuery::Hard);
-		AssetRegistryModule.GetDependencies(ExistingAsset.PackageName, Dependencies, UE::AssetRegistry::EDependencyCategory::Package, Flags);
+		AssetRegistryModule.GetDependencies(ExistingAsset.PackageName, PackageDependencies, UE::AssetRegistry::EDependencyCategory::Package, Flags);
+	}
 
-		FText StubText = FText::Format(LOCTEXT("EmptyTabMessage", "This object has {0} references to other packages."), Dependencies.Num());
-		return SNew(STextBlock).Text(StubText);
+
+	// Populate display information from package dependencies
+	int64 TotalSize = 0;
+	TMap<FName, FHRVPackageData> ExternalPackageList;
+	{
+		// Get disk size for dependencies
+		for(const FName& DependencyName : PackageDependencies)
+		{
+			FAssetPackageData AssetPackageData;
+			AssetRegistryModule.TryGetAssetPackageData(DependencyName, AssetPackageData);
+
+			FHRVPackageData& Header = ExternalPackageList.FindOrAdd(DependencyName);
+			Header.DisplayText = FText::Format(LOCTEXT("HeaderEntry", "Package: {0}"), FText::FromName(DependencyName));
+			Header.SizeOnDisk = AssetPackageData.DiskSize;
+
+			TotalSize += AssetPackageData.DiskSize;
+		}
+
+		// Search through blueprint nodes for references to the dependent packages
+		if( UBlueprint* Blueprint = BlueprintEditorPtr->GetBlueprintObj() )
+		{
+			for(UEdGraph* Graph : Blueprint->UbergraphPages)
+			{
+				if(Graph)
+				{
+					for (UEdGraphNode* Node : Graph->Nodes)
+					{
+						UPackage* FunctionPackage = nullptr;
+						if(UK2Node_CallFunction* CallFunctionNode = Cast<UK2Node_CallFunction>(Node))
+						{
+							FunctionPackage = CallFunctionNode->FunctionReference.GetMemberParentPackage();
+						}
+						else if(UK2Node_DynamicCast* CastNode = Cast<UK2Node_DynamicCast>(Node))
+						{
+							if(CastNode->TargetType)
+							{
+								FunctionPackage = CastNode->TargetType->GetPackage();
+							}
+						}
+
+						if( FunctionPackage )
+						{
+							const FName PackageName = FunctionPackage->GetFName();
+							if(FHRVPackageData* Header = ExternalPackageList.Find(PackageName))
+							{
+								FAssetPackageData AssetPackageData;
+								AssetRegistryModule.TryGetAssetPackageData(PackageName, AssetPackageData);
+
+								FHRVNodeData& LinkData  = Header->ReferencingNodes.AddDefaulted_GetRef();
+								LinkData.DisplayText = Node->GetNodeTitle(ENodeTitleType::ListView);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Visualize external packages and linking nodes
+	TSharedPtr<SVerticalBox> VerticalBox = SNew(SVerticalBox);
+	{
+		{
+			FText SummaryText = FText::Format(LOCTEXT("SummaryMessage", "This blueprint makes {0} references to other packages. TotalSize={1}"), PackageDependencies.Num(), TotalSize);
+			VerticalBox->AddSlot()
+			.AutoHeight()
+			[
+				SNew(STextBlock).Text(SummaryText)
+			];
+		}
+
+		for (auto MapIt = ExternalPackageList.CreateConstIterator(); MapIt; ++MapIt)
+		{
+			const FHRVPackageData& HeadingEntry = MapIt.Value();
+
+			VerticalBox->AddSlot()
+			.AutoHeight()
+			.Padding(10.f, 1.f)
+			[
+				SNew(STextBlock).Text(HeadingEntry.DisplayText)
+			];
+
+			for(const FHRVNodeData& Link : HeadingEntry.ReferencingNodes)
+			{
+				VerticalBox->AddSlot()
+				.AutoHeight()
+				.Padding(20.f, 1.f)
+				[
+					SNew(STextBlock).Text(Link.DisplayText)
+				];
+			}
+		}
 	}
 	
-	return FWorkflowTabFactory::CreateTabBody(Info);
+	return VerticalBox->AsShared();
 }
 
 FText FHardReferenceViewerSummoner::GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const
