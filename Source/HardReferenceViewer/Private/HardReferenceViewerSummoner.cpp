@@ -113,6 +113,7 @@ TSharedRef<SWidget> FHardReferenceViewerSummoner::CreateTabBody(const FWorkflowT
 	const TSharedPtr<FBlueprintEditor> BlueprintEditorPtr = StaticCastSharedPtr<FBlueprintEditor>(HostingApp.Pin());
 	const FHRVSearchData SearchData = BuildSearchData(BlueprintEditorPtr);
 
+	// @omidk TODO: Use SAssignNew(TreeView, STreeView<...>) to create a collapsible list of headers and elements
 	// Visualize external packages and linking nodes
 	TSharedPtr<SVerticalBox> ResultsData = SNew(SVerticalBox);
 	{
@@ -135,6 +136,13 @@ TSharedRef<SWidget> FHardReferenceViewerSummoner::CreateTabBody(const FWorkflowT
 				[
 					SNew(STextBlock).Text(Link.DisplayText)
 				];
+
+				/* @omidk TODO: On click, use a function like this to zoom in on the selected node
+				if(	UEdGraphNode* GraphNode = FBlueprintEditorUtils::GetNodeByGUID(Blueprint, NodeGuid) )
+				{
+					FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(GraphNode);
+					return FReply::Handled();
+				}*/
 			}
 		}
 	}
@@ -164,36 +172,5 @@ FText FHardReferenceViewerSummoner::GetTabToolTipText(const FWorkflowTabSpawnInf
 {
 	return LOCTEXT("TabTooltip", "Shows the hard referencing nodes in this Blueprint");
 }
-
-/*SNew(SBorder)
-.BorderImage(FAppStyle::Get().GetBrush("Brushes.Recessed"))
-.Padding(FMargin(8.f, 8.f, 4.f, 0.f))
-[
-	SAssignNew(TreeView, STreeViewType)
-	.ItemHeight(24)
-	.TreeItemsSource( &ItemsFound )
-	.OnGenerateRow( this, &SFindInBlueprints::OnGenerateRow )
-	.OnGetChildren( this, &SFindInBlueprints::OnGetChildren )
-	.OnMouseButtonDoubleClick(this,&SFindInBlueprints::OnTreeSelectionDoubleClicked)
-	.SelectionMode( ESelectionMode::Multi )
-	.OnContextMenuOpening(this, &SFindInBlueprints::OnContextMenuOpening)
-]*/
-
-/*FReply FHardReferenceViewerSummoner::OnClick()
-{
-	UBlueprint* Blueprint = GetParentBlueprint();
-	if(Blueprint)
-	{
-		UEdGraphNode* OutNode = NULL;
-		if(	UEdGraphNode* GraphNode = FBlueprintEditorUtils::GetNodeByGUID(Blueprint, NodeGuid) )
-		{
-			FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(GraphNode, /*bRequestRename=#1#false);
-			return FReply::Handled();
-		}
-	}
-
-	return FFindInBlueprintsResult::OnClick();
-}*/
-
 
 #undef LOCTEXT_NAMESPACE
