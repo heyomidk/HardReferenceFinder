@@ -95,6 +95,7 @@ TSharedRef<SWidget> FHardReferenceViewerSummoner::CreateTabBody(const FWorkflowT
 
 								FHRVNodeData& LinkData  = Header->ReferencingNodes.AddDefaulted_GetRef();
 								LinkData.DisplayText = Node->GetNodeTitle(ENodeTitleType::ListView);
+								LinkData.NodeGuid = Node->NodeGuid;
 							}
 						}
 					}

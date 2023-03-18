@@ -11,7 +11,7 @@ public:
 	struct FHRVNodeData
 	{
 		FText DisplayText;
-		// TODO: Add some data that lets us link to the node in the blueprint graph
+		FGuid NodeGuid;
 	};
 
 	struct FHRVPackageData
