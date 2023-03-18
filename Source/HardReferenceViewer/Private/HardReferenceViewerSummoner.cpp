@@ -3,6 +3,7 @@
 #include "HardReferenceViewerSummoner.h"
 #include "HardReferenceViewerStyle.h"
 #include "BlueprintEditor.h"
+#include "IContentBrowserSingleton.h"
 #include "K2Node_CallFunction.h"
 #include "K2Node_DynamicCast.h"
 #include "SEditorViewportToolBarMenu.h"
@@ -25,15 +26,16 @@ FHardReferenceViewerSummoner::FHardReferenceViewerSummoner(TSharedPtr<FAssetEdit
 	ViewMenuTooltip = LOCTEXT("HardReferenceViewerView_ToolTip", "Shows hard referencing nodes associated with this Blueprint");
 }
 
-TSharedRef<SWidget> FHardReferenceViewerSummoner::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
+/*static*/ FHardReferenceViewerSummoner::FHRVSearchData FHardReferenceViewerSummoner::BuildSearchData(TSharedPtr<FBlueprintEditor> BlueprintEditor)
 {
-	TSharedPtr<FBlueprintEditor> BlueprintEditorPtr = StaticCastSharedPtr<FBlueprintEditor>(HostingApp.Pin());
-	FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	FHRVSearchData SearchData;
 
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	
 	// Get this blueprints package dependencies from the blueprint editor 
 	TArray<FName> PackageDependencies;
 	{
-		TSharedPtr<SSubobjectEditor> SubobjectEditorPtr = BlueprintEditorPtr->GetSubobjectEditor();
+		TSharedPtr<SSubobjectEditor> SubobjectEditorPtr = BlueprintEditor->GetSubobjectEditor();
 		SSubobjectEditor* SubobjectEditorWidget = SubobjectEditorPtr.Get();
 
 		UObject* Object = SubobjectEditorWidget->GetObjectContext();
@@ -43,12 +45,13 @@ TSharedRef<SWidget> FHardReferenceViewerSummoner::CreateTabBody(const FWorkflowT
 
 		UE::AssetRegistry::FDependencyQuery Flags(UE::AssetRegistry::EDependencyQuery::Hard);
 		AssetRegistryModule.GetDependencies(ExistingAsset.PackageName, PackageDependencies, UE::AssetRegistry::EDependencyCategory::Package, Flags);
+		
+		FAssetPackageData AssetPackageData;
+		AssetRegistryModule.TryGetAssetPackageData(ExistingAsset.PackageName, AssetPackageData);
+		SearchData.SizeOnDisk = AssetPackageData.DiskSize; 
 	}
-
-
+	
 	// Populate display information from package dependencies
-	int64 TotalSize = 0;
-	TMap<FName, FHRVPackageData> ExternalPackageList;
 	{
 		// Get disk size for dependencies
 		for(const FName& DependencyName : PackageDependencies)
@@ -56,15 +59,13 @@ TSharedRef<SWidget> FHardReferenceViewerSummoner::CreateTabBody(const FWorkflowT
 			FAssetPackageData AssetPackageData;
 			AssetRegistryModule.TryGetAssetPackageData(DependencyName, AssetPackageData);
 
-			FHRVPackageData& Header = ExternalPackageList.FindOrAdd(DependencyName);
+			FHRVPackageData& Header = SearchData.PackageMap.FindOrAdd(DependencyName);
 			Header.DisplayText = FText::Format(LOCTEXT("HeaderEntry", "Package: {0}"), FText::FromName(DependencyName));
 			Header.SizeOnDisk = AssetPackageData.DiskSize;
-
-			TotalSize += AssetPackageData.DiskSize;
 		}
 
 		// Search through blueprint nodes for references to the dependent packages
-		if( UBlueprint* Blueprint = BlueprintEditorPtr->GetBlueprintObj() )
+		if( UBlueprint* Blueprint = BlueprintEditor->GetBlueprintObj() )
 		{
 			for(UEdGraph* Graph : Blueprint->UbergraphPages)
 			{
@@ -88,7 +89,7 @@ TSharedRef<SWidget> FHardReferenceViewerSummoner::CreateTabBody(const FWorkflowT
 						if( FunctionPackage )
 						{
 							const FName PackageName = FunctionPackage->GetFName();
-							if(FHRVPackageData* Header = ExternalPackageList.Find(PackageName))
+							if(FHRVPackageData* Header = SearchData.PackageMap.Find(PackageName))
 							{
 								FAssetPackageData AssetPackageData;
 								AssetRegistryModule.TryGetAssetPackageData(PackageName, AssetPackageData);
@@ -103,24 +104,23 @@ TSharedRef<SWidget> FHardReferenceViewerSummoner::CreateTabBody(const FWorkflowT
 			}
 		}
 	}
+	
+	return SearchData;
+}
+
+TSharedRef<SWidget> FHardReferenceViewerSummoner::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
+{
+	const TSharedPtr<FBlueprintEditor> BlueprintEditorPtr = StaticCastSharedPtr<FBlueprintEditor>(HostingApp.Pin());
+	const FHRVSearchData SearchData = BuildSearchData(BlueprintEditorPtr);
 
 	// Visualize external packages and linking nodes
-	TSharedPtr<SVerticalBox> VerticalBox = SNew(SVerticalBox);
+	TSharedPtr<SVerticalBox> ResultsData = SNew(SVerticalBox);
 	{
-		{
-			FText SummaryText = FText::Format(LOCTEXT("SummaryMessage", "This blueprint makes {0} references to other packages. TotalSize={1}"), PackageDependencies.Num(), TotalSize);
-			VerticalBox->AddSlot()
-			.AutoHeight()
-			[
-				SNew(STextBlock).Text(SummaryText)
-			];
-		}
-
-		for (auto MapIt = ExternalPackageList.CreateConstIterator(); MapIt; ++MapIt)
+		for (auto MapIt = SearchData.PackageMap.CreateConstIterator(); MapIt; ++MapIt)
 		{
 			const FHRVPackageData& HeadingEntry = MapIt.Value();
 
-			VerticalBox->AddSlot()
+			ResultsData->AddSlot()
 			.AutoHeight()
 			.Padding(10.f, 1.f)
 			[
@@ -129,7 +129,7 @@ TSharedRef<SWidget> FHardReferenceViewerSummoner::CreateTabBody(const FWorkflowT
 
 			for(const FHRVNodeData& Link : HeadingEntry.ReferencingNodes)
 			{
-				VerticalBox->AddSlot()
+				ResultsData->AddSlot()
 				.AutoHeight()
 				.Padding(20.f, 1.f)
 				[
@@ -138,13 +138,62 @@ TSharedRef<SWidget> FHardReferenceViewerSummoner::CreateTabBody(const FWorkflowT
 			}
 		}
 	}
+
+	const FText SummaryText = FText::Format(LOCTEXT("SummaryMessage", "This blueprint makes {0} references to other packages. DiskSize={1}MB"), SearchData.PackageMap.Num(), SearchData.SizeOnDisk);
 	
-	return VerticalBox->AsShared();
+	return SNew(SVerticalBox)
+	+ SVerticalBox::Slot()
+	.AutoHeight()
+	.Padding(10.f)
+	[
+		SNew(STextBlock)
+		.Text(SummaryText)
+	]
+	+ SVerticalBox::Slot()
+	[
+		SNew(SBorder)
+		.BorderImage(FAppStyle::Get().GetBrush("Brushes.Recessed"))
+		.Padding(FMargin(8.f, 8.f, 4.f, 0.f))
+		[
+			ResultsData->AsShared()
+		]
+	];
 }
 
 FText FHardReferenceViewerSummoner::GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const
 {
 	return LOCTEXT("TabTooltip", "Shows the hard referencing nodes in this Blueprint");
 }
+
+/*SNew(SBorder)
+.BorderImage(FAppStyle::Get().GetBrush("Brushes.Recessed"))
+.Padding(FMargin(8.f, 8.f, 4.f, 0.f))
+[
+	SAssignNew(TreeView, STreeViewType)
+	.ItemHeight(24)
+	.TreeItemsSource( &ItemsFound )
+	.OnGenerateRow( this, &SFindInBlueprints::OnGenerateRow )
+	.OnGetChildren( this, &SFindInBlueprints::OnGetChildren )
+	.OnMouseButtonDoubleClick(this,&SFindInBlueprints::OnTreeSelectionDoubleClicked)
+	.SelectionMode( ESelectionMode::Multi )
+	.OnContextMenuOpening(this, &SFindInBlueprints::OnContextMenuOpening)
+]*/
+
+/*FReply FHardReferenceViewerSummoner::OnClick()
+{
+	UBlueprint* Blueprint = GetParentBlueprint();
+	if(Blueprint)
+	{
+		UEdGraphNode* OutNode = NULL;
+		if(	UEdGraphNode* GraphNode = FBlueprintEditorUtils::GetNodeByGUID(Blueprint, NodeGuid) )
+		{
+			FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(GraphNode, /*bRequestRename=#1#false);
+			return FReply::Handled();
+		}
+	}
+
+	return FFindInBlueprintsResult::OnClick();
+}*/
+
 
 #undef LOCTEXT_NAMESPACE
