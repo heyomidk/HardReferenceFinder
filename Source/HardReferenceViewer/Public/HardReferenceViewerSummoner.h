@@ -5,9 +5,13 @@
 #include "CoreMinimal.h"
 #include "WorkflowOrientedApp/WorkflowTabFactory.h"
 
+class FBlueprintEditor;
+
 struct FHardReferenceViewerSummoner : public FWorkflowTabFactory
 {
 public:
+	// ---------------------------------------------------------------------------------
+	// TODO: @omidk move me to a better home
 	struct FHRVNodeData
 	{
 		FText DisplayText;
@@ -20,6 +24,14 @@ public:
 		int64 SizeOnDisk = 0;
 		TArray<FHRVNodeData> ReferencingNodes;
 	};
+
+	struct FHRVSearchData
+	{
+		int SizeOnDisk = 0;
+		TMap<FName, FHRVPackageData> PackageMap;
+	};
+	static FHRVSearchData BuildSearchData(TSharedPtr<FBlueprintEditor> BlueprintEditor);
+	// ---------------------------------------------------------------------------------
 
 	FHardReferenceViewerSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp);
 
