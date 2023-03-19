@@ -7,6 +7,7 @@
 #include "K2Node_CallFunction.h"
 #include "K2Node_DynamicCast.h"
 #include "SEditorViewportToolBarMenu.h"
+#include "SHardReferenceViewer.h"
 #include "SSubobjectEditor.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 
@@ -111,6 +112,8 @@ FHardReferenceViewerSummoner::FHardReferenceViewerSummoner(TSharedPtr<FAssetEdit
 TSharedRef<SWidget> FHardReferenceViewerSummoner::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
 {
 	const TSharedPtr<FBlueprintEditor> BlueprintEditorPtr = StaticCastSharedPtr<FBlueprintEditor>(HostingApp.Pin());
+	return SNew(SHardReferenceViewer, BlueprintEditorPtr);	
+	
 	const FHRVSearchData SearchData = BuildSearchData(BlueprintEditorPtr);
 
 	// @omidk TODO: Use SAssignNew(TreeView, STreeView<...>) to create a collapsible list of headers and elements
