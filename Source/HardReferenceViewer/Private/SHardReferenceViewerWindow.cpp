@@ -54,7 +54,7 @@ void SHardReferenceViewerWindow::OnDoubleClickTreeEntry(TSharedPtr<FHRVTreeViewI
 {
 	if(Item.IsValid() && BlueprintGraph.IsValid())
 	{
-		if( UBlueprint* BlueprintObj = BlueprintGraph->GetBlueprintObj() )
+		if( UBlueprint* BlueprintObj = BlueprintGraph.Pin()->GetBlueprintObj() )
 		{
 			if( const UEdGraphNode* GraphNode = FBlueprintEditorUtils::GetNodeByGUID(BlueprintObj, Item->NodeGuid) )
 			{

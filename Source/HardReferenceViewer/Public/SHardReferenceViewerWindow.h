@@ -26,7 +26,7 @@ private:
 	TSharedRef<ITableRow> OnGenerateRow(FHRVTreeViewItemPtr Item, const TSharedRef<STableViewBase>& TableViewBase) const;
 
 	/* The graph this window is operating on */
-	TSharedPtr<FBlueprintEditor> BlueprintGraph;	// @omidk TODO: This could probably be a weak ptr?
+	TWeakPtr<FBlueprintEditor> BlueprintGraph;	// @omidk TODO: This could probably be a weak ptr?
 	
 	/* Stores the data from searching the graph for references*/
 	FHardReferenceViewerSearchData SearchData;

@@ -18,7 +18,7 @@ public:
 class FHardReferenceViewerSearchData
 {
 public:
-	void GatherSearchData(TSharedPtr<FBlueprintEditor> BlueprintEditor);
+	void GatherSearchData(TWeakPtr<FBlueprintEditor> BlueprintEditor);
 
 	int GetSizeOnDisk() const { return SizeOnDisk; }
 	int GetNumPackagesReferenced() const { return PackageMap.Num(); }

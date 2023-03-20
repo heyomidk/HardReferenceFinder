@@ -7,16 +7,21 @@
 
 #define LOCTEXT_NAMESPACE "FHardReferenceViewerModule"
 
-void FHardReferenceViewerSearchData::GatherSearchData(TSharedPtr<FBlueprintEditor> BlueprintEditor)
+void FHardReferenceViewerSearchData::GatherSearchData(TWeakPtr<FBlueprintEditor> BlueprintEditor)
 {
 	Reset();
+	
+	if(!BlueprintEditor.IsValid())
+	{
+		return;
+	}
 	
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	
 	// Get this blueprints package dependencies from the blueprint editor 
 	TArray<FName> PackageDependencies;
 	{
-		TSharedPtr<SSubobjectEditor> SubobjectEditorPtr = BlueprintEditor->GetSubobjectEditor();
+		TSharedPtr<SSubobjectEditor> SubobjectEditorPtr = BlueprintEditor.Pin()->GetSubobjectEditor();
 		SSubobjectEditor* SubobjectEditorWidget = SubobjectEditorPtr.Get();
 
 		UObject* Object = SubobjectEditorWidget->GetObjectContext();
@@ -46,12 +51,15 @@ void FHardReferenceViewerSearchData::GatherSearchData(TSharedPtr<FBlueprintEdito
 		}
 
 		// Search through blueprint nodes for references to the dependent packages
-		if( UBlueprint* Blueprint = BlueprintEditor->GetBlueprintObj() )
+		if( UBlueprint* Blueprint = BlueprintEditor.Pin()->GetBlueprintObj() )
 		{
 			for(UEdGraph* Graph : Blueprint->UbergraphPages)
 			{
 				if(Graph)
 				{
+					// @omidk todo: Handle spawn nodes somehow? Find a generic way parse function input parameters  
+					// @omidk todo: Handle member variables
+					
 					for (UEdGraphNode* Node : Graph->Nodes)
 					{
 						UPackage* FunctionPackage = nullptr;
