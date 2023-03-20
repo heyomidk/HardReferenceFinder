@@ -7,7 +7,7 @@
 
 #define LOCTEXT_NAMESPACE "FHardReferenceViewerModule"
 
-void FHardReferenceViewerSearchData::Generate(TSharedPtr<FBlueprintEditor> BlueprintEditor)
+void FHardReferenceViewerSearchData::GatherSearchData(TSharedPtr<FBlueprintEditor> BlueprintEditor)
 {
 	Reset();
 	
@@ -93,5 +93,39 @@ void FHardReferenceViewerSearchData::Reset()
 	PackageMap.Reset();
 }
 
+
+TArray<TSharedPtr<FHRVTreeViewItem>> FHardReferenceViewerSearchData::GetAsTreeViewResults()
+{
+	TArray<TSharedPtr<FHRVTreeViewItem>> TreeResults;
+
+	for (auto MapIt = PackageMap.CreateConstIterator(); MapIt; ++MapIt)
+	{
+		const FHRVPackageData& HeadingEntry = MapIt.Value();
+
+		TSharedPtr<FHRVTreeViewItem> HeaderItem = MakeShared<FHRVTreeViewItem>();
+		TreeResults.Add(HeaderItem);
+		
+		HeaderItem->bIsCategoryHeader = true;
+		HeaderItem->CategorySizeOnDisk = HeadingEntry.SizeOnDisk;
+		HeaderItem->DisplayText = HeadingEntry.DisplayText;
+
+		for(const FHRVNodeData& Link : HeadingEntry.ReferencingNodes)
+		{
+			TSharedPtr<FHRVTreeViewItem> ChildItem = MakeShared<FHRVTreeViewItem>();
+			HeaderItem->Children.Add(ChildItem);
+
+			ChildItem->DisplayText = Link.DisplayText;
+			ChildItem->NodeGuid = Link.NodeGuid;
+		}
+	}
+
+	// sort from largest to smallest
+	TreeResults.Sort([](TSharedPtr<FHRVTreeViewItem> Lhs, TSharedPtr<FHRVTreeViewItem> Rhs)
+	{
+		return Lhs->CategorySizeOnDisk > Rhs->CategorySizeOnDisk;
+	});
+	
+	return TreeResults;	
+}
 
 #undef LOCTEXT_NAMESPACE

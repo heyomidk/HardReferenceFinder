@@ -9,9 +9,6 @@ class FBlueprintEditor;
 
 struct FHardReferenceViewerSummoner : public FWorkflowTabFactory
 {
-public:
-
-
 	FHardReferenceViewerSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp);
 
 	virtual TSharedRef<SWidget> CreateTabBody(const FWorkflowTabSpawnInfo& Info) const override;
