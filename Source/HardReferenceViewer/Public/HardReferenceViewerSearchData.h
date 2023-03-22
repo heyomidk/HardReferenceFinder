@@ -5,50 +5,32 @@
 
 class FBlueprintEditor;
 
-struct FHRVDisplayData
+class FHRVTreeViewItem : public TSharedFromThis<FHRVTreeViewItem>
 {
+public:
+
+	bool bIsHeader = false;
+	int SizeOnDisk = 0;
 	FText Name;
 	FText Tooltip;
 	FGuid NodeGuid;
 	FSlateIcon SlateIcon;
 	FLinearColor IconColor = FLinearColor::White;
-};
-
-
-class FHRVTreeViewItem : public TSharedFromThis<FHRVTreeViewItem>
-{
-public:
-
-	bool bIsCategoryHeader = false;
-	int CategorySizeOnDisk = 0;
-	FHRVDisplayData DisplayData;
 	TArray<TSharedPtr<FHRVTreeViewItem>> Children;
 };
+typedef TSharedPtr<FHRVTreeViewItem> FHRVTreeViewItemPtr;
 
 class FHardReferenceViewerSearchData
 {
 public:
-	void GatherSearchData(TWeakPtr<FBlueprintEditor> BlueprintEditor);
+	TArray<FHRVTreeViewItemPtr> GatherSearchData(TWeakPtr<FBlueprintEditor> BlueprintEditor);
 
 	int GetSizeOnDisk() const { return SizeOnDisk; }
-	int GetNumPackagesReferenced() const { return PackageMap.Num(); }
-	TArray<TSharedPtr<FHRVTreeViewItem>> GetAsTreeViewResults();
+	int GetNumPackagesReferenced() const { return TreeView.Num(); }
 
-private:
-	struct FHRVNodeData
-	{
-		FHRVDisplayData DisplayData;
-	};
-
-	struct FHRVPackageData
-	{
-		FHRVDisplayData DisplayData;
-		int64 SizeOnDisk = 0;
-		TArray<FHRVNodeData> ReferencingNodes;
-	};
-	
+private:	
 	void Reset();
 
 	int SizeOnDisk = 0;
-	TMap<FName, FHRVPackageData> PackageMap;
+	TArray<FHRVTreeViewItemPtr> TreeView;
 };

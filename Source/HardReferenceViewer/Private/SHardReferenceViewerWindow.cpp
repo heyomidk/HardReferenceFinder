@@ -40,8 +40,7 @@ void SHardReferenceViewerWindow::Construct(const FArguments& InArgs, TSharedPtr<
 
 void SHardReferenceViewerWindow::InitiateSearch()
 {
-	SearchData.GatherSearchData(BlueprintGraph);
-	TreeViewData = SearchData.GetAsTreeViewResults();
+	TreeViewData = SearchData.GatherSearchData(BlueprintGraph);
 	
 	const FText SummaryText = FText::Format(LOCTEXT("SummaryMessage", "This blueprint makes {0} references to other packages."), SearchData.GetNumPackagesReferenced());
 	HeaderText->SetText(SummaryText);
@@ -57,7 +56,7 @@ void SHardReferenceViewerWindow::OnDoubleClickTreeEntry(TSharedPtr<FHRVTreeViewI
 	{
 		if( UBlueprint* BlueprintObj = BlueprintGraph.Pin()->GetBlueprintObj() )
 		{
-			if( const UEdGraphNode* GraphNode = FBlueprintEditorUtils::GetNodeByGUID(BlueprintObj, Item->DisplayData.NodeGuid) )
+			if( const UEdGraphNode* GraphNode = FBlueprintEditorUtils::GetNodeByGUID(BlueprintObj, Item->NodeGuid) )
 			{
 				FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(GraphNode);
 			}
@@ -72,9 +71,9 @@ void SHardReferenceViewerWindow::OnGetChildren(FHRVTreeViewItemPtr InItem, TArra
 
 TSharedRef<ITableRow> SHardReferenceViewerWindow::OnGenerateRow(FHRVTreeViewItemPtr Item, const TSharedRef<STableViewBase>& TableViewBase) const
 {
-	if(Item->bIsCategoryHeader)
+	if(Item->bIsHeader)
 	{
-		const FText CategoryHeaderText = FText::Format(LOCTEXT("CategoryHeader", "{1} ({0}MB)"), Item->CategorySizeOnDisk/1000.f, Item->DisplayData.Name);
+		const FText CategoryHeaderText = FText::Format(LOCTEXT("CategoryHeader", "{1} ({0}MB)"), Item->SizeOnDisk/1000.f, Item->Name);
 
 		return SNew(STableRow<TSharedPtr<FName>>, TableViewBase)
 			.Style( &FAppStyle::Get().GetWidgetStyle<FTableRowStyle>("ShowParentsTableView.Row") )
@@ -87,8 +86,8 @@ TSharedRef<ITableRow> SHardReferenceViewerWindow::OnGenerateRow(FHRVTreeViewItem
 				.AutoWidth()
 				[
 					SNew(SImage)
-					.Image(Item->DisplayData.SlateIcon.GetOptionalIcon())
-					.ColorAndOpacity(Item->DisplayData.IconColor)
+					.Image(Item->SlateIcon.GetOptionalIcon())
+					.ColorAndOpacity(Item->IconColor)
 				]
 				+SHorizontalBox::Slot()
 				.AutoWidth()
@@ -110,15 +109,15 @@ TSharedRef<ITableRow> SHardReferenceViewerWindow::OnGenerateRow(FHRVTreeViewItem
 			.AutoWidth()
 			[
 				SNew(SImage)
-				.Image(Item->DisplayData.SlateIcon.GetOptionalIcon())
-				.ColorAndOpacity(Item->DisplayData.IconColor)
+				.Image(Item->SlateIcon.GetOptionalIcon())
+				.ColorAndOpacity(Item->IconColor)
 			]
 			+SHorizontalBox::Slot()
 			.AutoWidth()
 			.VAlign(VAlign_Center)
 			.Padding(2.f)
 			[
-				SNew(STextBlock).Text(Item->DisplayData.Name)
+				SNew(STextBlock).Text(Item->Name)
 			]
 		];
 	}

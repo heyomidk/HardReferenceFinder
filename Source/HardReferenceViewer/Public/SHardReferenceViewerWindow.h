@@ -17,7 +17,6 @@ class SHardReferenceViewerWindow : public SCompoundWidget
 	void Construct(const FArguments& InArgs, TSharedPtr<FBlueprintEditor> InBlueprintGraph);
 
 private:
-	typedef TSharedPtr<FHRVTreeViewItem> FHRVTreeViewItemPtr;
 	typedef STreeView<FHRVTreeViewItemPtr> SHRVReferenceTreeType;
 	
 	void InitiateSearch();
@@ -26,7 +25,7 @@ private:
 	TSharedRef<ITableRow> OnGenerateRow(FHRVTreeViewItemPtr Item, const TSharedRef<STableViewBase>& TableViewBase) const;
 
 	/* The graph this window is operating on */
-	TWeakPtr<FBlueprintEditor> BlueprintGraph;	// @omidk TODO: This could probably be a weak ptr?
+	TWeakPtr<FBlueprintEditor> BlueprintGraph;
 	
 	/* Stores the data from searching the graph for references*/
 	FHardReferenceViewerSearchData SearchData;
