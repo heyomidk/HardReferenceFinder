@@ -47,6 +47,7 @@ public class HardReferenceViewer : ModuleRules
 				"SubobjectEditor",
 				"AssetRegistry",
 				"BlueprintGraph",
+				"AssetTools",
 			}
 			);
 		

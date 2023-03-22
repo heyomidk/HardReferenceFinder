@@ -5,13 +5,23 @@
 
 class FBlueprintEditor;
 
+struct FHRVDisplayData
+{
+	FText Name;
+	FText Tooltip;
+	FGuid NodeGuid;
+	FSlateIcon SlateIcon;
+	FLinearColor IconColor = FLinearColor::White;
+};
+
+
 class FHRVTreeViewItem : public TSharedFromThis<FHRVTreeViewItem>
 {
 public:
+
 	bool bIsCategoryHeader = false;
 	int CategorySizeOnDisk = 0;
-	FText DisplayText;
-	FGuid NodeGuid;
+	FHRVDisplayData DisplayData;
 	TArray<TSharedPtr<FHRVTreeViewItem>> Children;
 };
 
@@ -27,13 +37,12 @@ public:
 private:
 	struct FHRVNodeData
 	{
-		FText DisplayText;
-		FGuid NodeGuid;
+		FHRVDisplayData DisplayData;
 	};
 
 	struct FHRVPackageData
 	{
-		FText DisplayText;
+		FHRVDisplayData DisplayData;
 		int64 SizeOnDisk = 0;
 		TArray<FHRVNodeData> ReferencingNodes;
 	};

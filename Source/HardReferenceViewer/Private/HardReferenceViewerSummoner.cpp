@@ -12,15 +12,14 @@ static const FName HardReferenceViewerID( TEXT( "HardReferenceViewer") );
 FHardReferenceViewerSummoner::FHardReferenceViewerSummoner(TSharedPtr<FAssetEditorToolkit> InHostingApp)
 	: FWorkflowTabFactory(HardReferenceViewerID, InHostingApp)
 {
-	TabLabel = LOCTEXT("HardReferenceViewerTabTitle", "Hard Reference Viewer");
-	TabIcon = FSlateIcon(FHardReferenceViewerStyle::GetStyleSetName(), "HardReferenceViewer.TabIcon");
+	TabLabel = LOCTEXT("HardReferenceViewerTabTitle", "Hard References");
+	TabIcon = FSlateIcon("EditorStyle","ContentBrowser.ReferenceViewer");
 
 	bIsSingleton = true;
 
 	ViewMenuDescription = LOCTEXT("HardReferenceViewerView", "Hard Reference Viewer");
 	ViewMenuTooltip = LOCTEXT("HardReferenceViewerView_ToolTip", "Shows hard referencing nodes associated with this Blueprint");
 }
-
 
 TSharedRef<SWidget> FHardReferenceViewerSummoner::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
 {

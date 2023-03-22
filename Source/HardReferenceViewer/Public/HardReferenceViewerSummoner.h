@@ -5,8 +5,6 @@
 #include "CoreMinimal.h"
 #include "WorkflowOrientedApp/WorkflowTabFactory.h"
 
-class FBlueprintEditor;
-
 struct FHardReferenceViewerSummoner : public FWorkflowTabFactory
 {
 	FHardReferenceViewerSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp);

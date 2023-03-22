@@ -1,4 +1,5 @@
 ﻿#include "HardReferenceViewerSearchData.h"
+#include "AssetToolsModule.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "BlueprintEditor.h"
 #include "K2Node_CallFunction.h"
@@ -10,7 +11,7 @@
 void FHardReferenceViewerSearchData::GatherSearchData(TWeakPtr<FBlueprintEditor> BlueprintEditor)
 {
 	Reset();
-	
+
 	if(!BlueprintEditor.IsValid())
 	{
 		return;
@@ -34,22 +35,43 @@ void FHardReferenceViewerSearchData::GatherSearchData(TWeakPtr<FBlueprintEditor>
 		
 		FAssetPackageData AssetPackageData;
 		AssetRegistryModule.TryGetAssetPackageData(ExistingAsset.PackageName, AssetPackageData);
-		SizeOnDisk = AssetPackageData.DiskSize; 
+		SizeOnDisk = AssetPackageData.DiskSize;
 	}
-	
+
 	// Populate display information from package dependencies
 	{
-		// Get disk size for dependencies
-		for(const FName& DependencyName : PackageDependencies)
+		TMap<FName, FAssetData> DependencyToAssetDataMap;
+		UE::AssetRegistry::GetAssetForPackages(PackageDependencies, DependencyToAssetDataMap);
+
+		for (auto MapIt = DependencyToAssetDataMap.CreateConstIterator(); MapIt; ++MapIt)
 		{
+			const FName& PathName = MapIt.Key();
+			const FAssetData& AssetData = MapIt.Value();
+			FString AssetTypeName = AssetData.AssetClassPath.GetAssetName().ToString();
+			FString FileName = FPaths::GetCleanFilename(PathName.ToString());
+		
 			FAssetPackageData AssetPackageData;
-			AssetRegistryModule.TryGetAssetPackageData(DependencyName, AssetPackageData);
-
-			FHRVPackageData& Header = PackageMap.FindOrAdd(DependencyName);
-			Header.DisplayText = FText::Format(LOCTEXT("HeaderEntry", "Package: {0}"), FText::FromName(DependencyName));
+			AssetRegistryModule.TryGetAssetPackageData(PathName, AssetPackageData);
+	
+			FHRVPackageData& Header = PackageMap.FindOrAdd(PathName);
+			Header.DisplayData.Tooltip = FText::FromName(PathName);
+			Header.DisplayData.Name = FText::FromString(FileName);
 			Header.SizeOnDisk = AssetPackageData.DiskSize;
-		}
+			Header.DisplayData.SlateIcon = FSlateIcon("EditorStyle", FName( *("ClassIcon." + AssetTypeName))); 
 
+			FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>(TEXT("AssetTools"));	
+			if (UClass* AssetClass = AssetData.GetClass())
+			{
+				TWeakPtr<IAssetTypeActions> AssetTypeActions = AssetToolsModule.Get().GetAssetTypeActionsForClass(AssetData.GetClass());
+				if(AssetTypeActions.IsValid())
+				{
+					Header.DisplayData.IconColor = AssetTypeActions.Pin()->GetTypeColor();
+				}
+			}
+		}
+	}
+	
+	{
 		// Search through blueprint nodes for references to the dependent packages
 		if( UBlueprint* Blueprint = BlueprintEditor.Pin()->GetBlueprintObj() )
 		{
@@ -84,8 +106,9 @@ void FHardReferenceViewerSearchData::GatherSearchData(TWeakPtr<FBlueprintEditor>
 								AssetRegistryModule.TryGetAssetPackageData(PackageName, AssetPackageData);
 
 								FHRVNodeData& LinkData  = Header->ReferencingNodes.AddDefaulted_GetRef();
-								LinkData.DisplayText = Node->GetNodeTitle(ENodeTitleType::ListView);
-								LinkData.NodeGuid = Node->NodeGuid;
+								LinkData.DisplayData.Name = Node->GetNodeTitle(ENodeTitleType::ListView);
+								LinkData.DisplayData.NodeGuid = Node->NodeGuid;
+								LinkData.DisplayData.SlateIcon = Node->GetIconAndTint(LinkData.DisplayData.IconColor);
 							}
 						}
 					}
@@ -101,7 +124,6 @@ void FHardReferenceViewerSearchData::Reset()
 	PackageMap.Reset();
 }
 
-
 TArray<TSharedPtr<FHRVTreeViewItem>> FHardReferenceViewerSearchData::GetAsTreeViewResults()
 {
 	TArray<TSharedPtr<FHRVTreeViewItem>> TreeResults;
@@ -115,15 +137,20 @@ TArray<TSharedPtr<FHRVTreeViewItem>> FHardReferenceViewerSearchData::GetAsTreeVi
 		
 		HeaderItem->bIsCategoryHeader = true;
 		HeaderItem->CategorySizeOnDisk = HeadingEntry.SizeOnDisk;
-		HeaderItem->DisplayText = HeadingEntry.DisplayText;
+		HeaderItem->DisplayData = HeadingEntry.DisplayData;
 
 		for(const FHRVNodeData& Link : HeadingEntry.ReferencingNodes)
 		{
 			TSharedPtr<FHRVTreeViewItem> ChildItem = MakeShared<FHRVTreeViewItem>();
 			HeaderItem->Children.Add(ChildItem);
+			ChildItem->DisplayData = Link.DisplayData;
+		}
 
-			ChildItem->DisplayText = Link.DisplayText;
-			ChildItem->NodeGuid = Link.NodeGuid;
+		if(HeaderItem->Children.Num() <= 0)
+		{
+			TSharedPtr<FHRVTreeViewItem> ChildItem = MakeShared<FHRVTreeViewItem>();
+			HeaderItem->Children.Add(ChildItem);
+			ChildItem->DisplayData.Name = LOCTEXT("UnknownSource", "Unknown source");
 		}
 	}
 

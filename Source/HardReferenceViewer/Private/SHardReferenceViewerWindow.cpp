@@ -1,6 +1,7 @@
 ﻿
 #include "SHardReferenceViewerWindow.h"
 #include "BlueprintEditor.h"
+#include "GraphEditorSettings.h"
 #include "HardReferenceViewerSearchData.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
@@ -42,7 +43,7 @@ void SHardReferenceViewerWindow::InitiateSearch()
 	SearchData.GatherSearchData(BlueprintGraph);
 	TreeViewData = SearchData.GetAsTreeViewResults();
 	
-	const FText SummaryText = FText::Format(LOCTEXT("SummaryMessage", "This blueprint makes {0} references to other packages. DiskSize={1}MB"), SearchData.GetNumPackagesReferenced(), SearchData.GetSizeOnDisk()/1000);
+	const FText SummaryText = FText::Format(LOCTEXT("SummaryMessage", "This blueprint makes {0} references to other packages."), SearchData.GetNumPackagesReferenced());
 	HeaderText->SetText(SummaryText);
 	if(TreeView.IsValid())
 	{
@@ -56,7 +57,7 @@ void SHardReferenceViewerWindow::OnDoubleClickTreeEntry(TSharedPtr<FHRVTreeViewI
 	{
 		if( UBlueprint* BlueprintObj = BlueprintGraph.Pin()->GetBlueprintObj() )
 		{
-			if( const UEdGraphNode* GraphNode = FBlueprintEditorUtils::GetNodeByGUID(BlueprintObj, Item->NodeGuid) )
+			if( const UEdGraphNode* GraphNode = FBlueprintEditorUtils::GetNodeByGUID(BlueprintObj, Item->DisplayData.NodeGuid) )
 			{
 				FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(GraphNode);
 			}
@@ -73,21 +74,52 @@ TSharedRef<ITableRow> SHardReferenceViewerWindow::OnGenerateRow(FHRVTreeViewItem
 {
 	if(Item->bIsCategoryHeader)
 	{
-		const FText CategoryHeaderText = FText::Format(LOCTEXT("CategoryHeader", "({0}MB) {1}"), Item->CategorySizeOnDisk/1000.f, Item->DisplayText);
+		const FText CategoryHeaderText = FText::Format(LOCTEXT("CategoryHeader", "{1} ({0}MB)"), Item->CategorySizeOnDisk/1000.f, Item->DisplayData.Name);
 
 		return SNew(STableRow<TSharedPtr<FName>>, TableViewBase)
 			.Style( &FAppStyle::Get().GetWidgetStyle<FTableRowStyle>("ShowParentsTableView.Row") )
 			.Padding(FMargin(2.f, 3.f, 2.f, 3.f))
 			[
-				SNew(STextBlock)
-				.Text(CategoryHeaderText)
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				.Padding(FMargin(0.f, 0.f, 8.f, 0.f))
+				.AutoWidth()
+				[
+					SNew(SImage)
+					.Image(Item->DisplayData.SlateIcon.GetOptionalIcon())
+					.ColorAndOpacity(Item->DisplayData.IconColor)
+				]
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.Padding(2.f)
+				[
+					SNew(STextBlock).Text(CategoryHeaderText)
+				]
 			];
 	}
 	else
 	{
 		return SNew(STableRow<TSharedPtr<FName>>, TableViewBase)
 		[
-			SNew(STextBlock).Text(Item->DisplayText)
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.VAlign(VAlign_Center)
+			.Padding(FMargin(0.f, 0.f, 8.f, 0.f))
+			.AutoWidth()
+			[
+				SNew(SImage)
+				.Image(Item->DisplayData.SlateIcon.GetOptionalIcon())
+				.ColorAndOpacity(Item->DisplayData.IconColor)
+			]
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(2.f)
+			[
+				SNew(STextBlock).Text(Item->DisplayData.Name)
+			]
 		];
 	}
 }
