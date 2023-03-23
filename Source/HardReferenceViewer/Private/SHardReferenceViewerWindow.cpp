@@ -47,7 +47,7 @@ void SHardReferenceViewerWindow::Construct(const FArguments& InArgs, TSharedPtr<
 						.Image(FAppStyle::GetBrush("Icons.Refresh"))
 					]
 					+ SHorizontalBox::Slot()
-					.Padding(FMargin(3, 0, 0, 0))
+					.Padding(FMargin(8., 0, 0, 0))
 					.VAlign(VAlign_Center)
 					.AutoWidth()
 					[
