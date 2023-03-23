@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "Templates/SharedPointer.h"
 
 class FBlueprintEditor;
@@ -31,6 +32,9 @@ public:
 
 private:	
 	void Reset();
+	UObject* GetObjectContext(TWeakPtr<FBlueprintEditor> BlueprintEditor) const;
+	void GetPackageDependencies(TArray<FName>& OutPackageDependencies, int& OutSizeOnDisk, FAssetRegistryModule& AssetRegistryModule, TWeakPtr<FBlueprintEditor> BlueprintEditor) const;
+	void SearchGraphNodes(TMap<FName, FHRVTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const TArray<TObjectPtr<UEdGraph>>& EdGraphList) const;
 
 	int SizeOnDisk = 0;
 	TArray<FHRVTreeViewItemPtr> TreeView;

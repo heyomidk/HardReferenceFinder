@@ -12,32 +12,12 @@ TArray<FHRVTreeViewItemPtr> FHardReferenceViewerSearchData::GatherSearchData(TWe
 {
 	Reset();
 
-	if(!BlueprintEditor.IsValid())
-	{
-		return TArray<FHRVTreeViewItemPtr>();
-	}
-
-	TMap<FName, FHRVTreeViewItemPtr> PackageMap;
+	TMap<FName, FHRVTreeViewItemPtr> DependentPackageMap;
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	
 	// Get this blueprints package dependencies from the blueprint editor 
 	TArray<FName> PackageDependencies;
-	{
-		TSharedPtr<SSubobjectEditor> SubobjectEditorPtr = BlueprintEditor.Pin()->GetSubobjectEditor();
-		SSubobjectEditor* SubobjectEditorWidget = SubobjectEditorPtr.Get();
-
-		UObject* Object = SubobjectEditorWidget->GetObjectContext();
-		FString ObjectPath = Object->GetPathName();
-
-		FAssetData ExistingAsset = AssetRegistryModule.Get().GetAssetByObjectPath(FSoftObjectPath(ObjectPath));
-
-		UE::AssetRegistry::FDependencyQuery Flags(UE::AssetRegistry::EDependencyQuery::Hard);
-		AssetRegistryModule.GetDependencies(ExistingAsset.PackageName, PackageDependencies, UE::AssetRegistry::EDependencyCategory::Package, Flags);
-		
-		FAssetPackageData AssetPackageData;
-		AssetRegistryModule.TryGetAssetPackageData(ExistingAsset.PackageName, AssetPackageData);
-		SizeOnDisk = AssetPackageData.DiskSize;
-	}
+	GetPackageDependencies(PackageDependencies, SizeOnDisk, AssetRegistryModule, BlueprintEditor);
 
 	// Populate display information from package dependencies
 	{
@@ -73,7 +53,7 @@ TArray<FHRVTreeViewItemPtr> FHardReferenceViewerSearchData::GatherSearchData(TWe
 					}
 				}
 			
-				PackageMap.Add(PathName, Header);
+				DependentPackageMap.Add(PathName, Header);
 				TreeView.Add(Header);
 			}
 		}
@@ -83,53 +63,10 @@ TArray<FHRVTreeViewItemPtr> FHardReferenceViewerSearchData::GatherSearchData(TWe
 		// Search through blueprint nodes for references to the dependent packages
 		if( UBlueprint* Blueprint = BlueprintEditor.Pin()->GetBlueprintObj() )
 		{
-			for(UEdGraph* Graph : Blueprint->UbergraphPages)
-			{
-				if(Graph)
-				{
-					// @omidk todo: Handle spawn nodes somehow? Find a generic way parse function input parameters  
-					// @omidk todo: Handle member variables
-					// @omidk todo: Handle Components
-					
-					for (UEdGraphNode* Node : Graph->Nodes)
-					{
-						UPackage* FunctionPackage = nullptr;
-						if(UK2Node_CallFunction* CallFunctionNode = Cast<UK2Node_CallFunction>(Node))
-						{
-							FunctionPackage = CallFunctionNode->FunctionReference.GetMemberParentPackage();
-						}
-						else if(UK2Node_DynamicCast* CastNode = Cast<UK2Node_DynamicCast>(Node))
-						{
-							if(CastNode->TargetType)
-							{
-								FunctionPackage = CastNode->TargetType->GetPackage();
-							}
-						}
-
-						if( FunctionPackage )
-						{
-							const FName PackageName = FunctionPackage->GetFName();
-							if(FHRVTreeViewItemPtr* FoundHeader = PackageMap.Find(PackageName))
-							{
-								FHRVTreeViewItemPtr Header = *FoundHeader;
-								
-								FAssetPackageData AssetPackageData;
-								UE::AssetRegistry::EExists Result = AssetRegistryModule.TryGetAssetPackageData(PackageName, AssetPackageData);
-								if(ensure(Result == UE::AssetRegistry::EExists::Exists))
-								{
-									FHRVTreeViewItemPtr Link = MakeShared<FHRVTreeViewItem>();
-								
-									Link->Name = Node->GetNodeTitle(ENodeTitleType::ListView);
-									Link->NodeGuid = Node->NodeGuid;
-									Link->SlateIcon = Node->GetIconAndTint(Link->IconColor);
-
-									Header->Children.Add(Link);
-								}
-							}
-						}
-					}
-				}
-			}
+			SearchGraphNodes(DependentPackageMap, AssetRegistryModule, Blueprint->UbergraphPages);
+			SearchGraphNodes(DependentPackageMap, AssetRegistryModule, Blueprint->FunctionGraphs);
+			// @omidk todo: Search member variables
+			// @omidk todo: Search components
 		}
 	}
 
@@ -158,5 +95,92 @@ void FHardReferenceViewerSearchData::Reset()
 	SizeOnDisk = 0;
 	TreeView.Reset();
 }
+
+UObject* FHardReferenceViewerSearchData::GetObjectContext(TWeakPtr<FBlueprintEditor> BlueprintEditor) const
+{
+	if(!BlueprintEditor.IsValid())
+	{
+		return nullptr;
+	}
+	
+	TSharedPtr<SSubobjectEditor> SubobjectEditorPtr = BlueprintEditor.Pin()->GetSubobjectEditor();
+	SSubobjectEditor* SubobjectEditorWidget = SubobjectEditorPtr.Get();
+	if(SubobjectEditorWidget == nullptr)
+	{
+		return nullptr;
+	}
+		
+	UObject* Object = SubobjectEditorWidget->GetObjectContext();
+	return Object;
+}
+
+void FHardReferenceViewerSearchData::GetPackageDependencies(TArray<FName>& OutPackageDependencies, int& OutSizeOnDisk, FAssetRegistryModule& AssetRegistryModule, TWeakPtr<FBlueprintEditor> BlueprintEditor) const
+{
+	UObject* Object = GetObjectContext(BlueprintEditor);
+	if(Object == nullptr)
+	{
+		return;
+	}
+	
+	FString ObjectPath = Object->GetPathName();
+	FAssetData ExistingAsset = AssetRegistryModule.Get().GetAssetByObjectPath(FSoftObjectPath(ObjectPath));
+
+	UE::AssetRegistry::FDependencyQuery Flags(UE::AssetRegistry::EDependencyQuery::Hard);
+	AssetRegistryModule.GetDependencies(ExistingAsset.PackageName, OutPackageDependencies, UE::AssetRegistry::EDependencyCategory::Package, Flags);
+	
+	FAssetPackageData AssetPackageData;
+	AssetRegistryModule.TryGetAssetPackageData(ExistingAsset.PackageName, AssetPackageData);
+	OutSizeOnDisk = AssetPackageData.DiskSize;
+}
+
+void FHardReferenceViewerSearchData::SearchGraphNodes(TMap<FName, FHRVTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const TArray<TObjectPtr<UEdGraph>>& EdGraphList) const
+{
+	for(UEdGraph* Graph : EdGraphList)
+	{
+		if(Graph)
+		{
+			// @omidk TODO: Search node input parameters (ex: class input of a Spawn node)   
+					
+			for (UEdGraphNode* Node : Graph->Nodes)
+			{
+				UPackage* FunctionPackage = nullptr;
+				if(UK2Node_CallFunction* CallFunctionNode = Cast<UK2Node_CallFunction>(Node))
+				{
+					FunctionPackage = CallFunctionNode->FunctionReference.GetMemberParentPackage();
+				}
+				else if(UK2Node_DynamicCast* CastNode = Cast<UK2Node_DynamicCast>(Node))
+				{
+					if(CastNode->TargetType)
+					{
+						FunctionPackage = CastNode->TargetType->GetPackage();
+					}
+				}
+
+				if( FunctionPackage )
+				{
+					const FName PackageName = FunctionPackage->GetFName();
+					if(FHRVTreeViewItemPtr* FoundHeader = OutPackageMap.Find(PackageName))
+					{
+						FHRVTreeViewItemPtr Header = *FoundHeader;
+								
+						FAssetPackageData AssetPackageData;
+						UE::AssetRegistry::EExists Result = AssetRegistryModule.TryGetAssetPackageData(PackageName, AssetPackageData);
+						if(ensure(Result == UE::AssetRegistry::EExists::Exists))
+						{
+							FHRVTreeViewItemPtr Link = MakeShared<FHRVTreeViewItem>();
+								
+							Link->Name = Node->GetNodeTitle(ENodeTitleType::ListView);
+							Link->NodeGuid = Node->NodeGuid;
+							Link->SlateIcon = Node->GetIconAndTint(Link->IconColor);
+
+							Header->Children.Add(Link);
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 
 #undef LOCTEXT_NAMESPACE
