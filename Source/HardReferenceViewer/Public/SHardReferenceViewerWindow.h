@@ -19,11 +19,13 @@ class SHardReferenceViewerWindow : public SCompoundWidget
 private:
 	typedef STreeView<FHRVTreeViewItemPtr> SHRVReferenceTreeType;
 	
+	TSet<FName> GetCollapsedPackages() const;
 	void InitiateSearch();
+	FReply OnRefreshClicked();
 	void OnDoubleClickTreeEntry(TSharedPtr<FHRVTreeViewItem> Item) const;
 	void OnGetChildren(FHRVTreeViewItemPtr InItem, TArray< FHRVTreeViewItemPtr >& OutChildren) const;
 	TSharedRef<ITableRow> OnGenerateRow(FHRVTreeViewItemPtr Item, const TSharedRef<STableViewBase>& TableViewBase) const;
-
+	
 	/* The graph this window is operating on */
 	TWeakPtr<FBlueprintEditor> BlueprintGraph;
 	
@@ -39,4 +41,5 @@ private:
 	/* Holds a reference to the tree view*/
 	TSharedPtr<SHRVReferenceTreeType> TreeView;
 };
+
 

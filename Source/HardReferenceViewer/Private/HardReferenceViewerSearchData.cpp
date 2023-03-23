@@ -57,6 +57,7 @@ TArray<FHRVTreeViewItemPtr> FHardReferenceViewerSearchData::GatherSearchData(TWe
 			if( FHRVTreeViewItemPtr Header = MakeShared<FHRVTreeViewItem>() )
 			{
 				Header->bIsHeader = true;
+				Header->PackageId = PathName;
 				Header->Tooltip = FText::FromName(PathName);
 				Header->Name = FText::FromString(FileName);
 				Header->SizeOnDisk = AssetPackageData.DiskSize;

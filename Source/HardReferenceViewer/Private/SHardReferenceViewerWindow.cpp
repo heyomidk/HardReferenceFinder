@@ -18,7 +18,45 @@ void SHardReferenceViewerWindow::Construct(const FArguments& InArgs, TSharedPtr<
 		.AutoHeight()
 		.Padding(10.f)
 		[
-			SAssignNew(HeaderText, STextBlock)
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.Padding(8.f,4.f)
+			.VAlign(VAlign_Center)
+			[
+				SAssignNew(HeaderText, STextBlock)
+			]
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			.HAlign(HAlign_Right)
+			.Padding(0.f, 0.0f)
+			[
+				SNew(SButton)
+				.ButtonStyle( &FAppStyle::Get().GetWidgetStyle< FButtonStyle >( "Button" ) )
+				.OnClicked(this, &SHardReferenceViewerWindow::OnRefreshClicked)
+				.ForegroundColor(FSlateColor::UseStyle())
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.HAlign(HAlign_Center)
+					.VAlign(VAlign_Center)
+					.Padding(0.,3.f)
+					.AutoWidth()
+					[
+						SNew(SImage)
+						.ColorAndOpacity(FSlateColor::UseForeground())
+						.Image(FAppStyle::GetBrush("Icons.Refresh"))
+					]
+					+ SHorizontalBox::Slot()
+					.Padding(FMargin(3, 0, 0, 0))
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					[
+						SNew(STextBlock)
+						.TextStyle(FAppStyle::Get(), "SmallButtonText")
+						.Text(LOCTEXT("Refresh", "Refresh"))
+					]
+				]
+			]
 		]
 		+ SVerticalBox::Slot()
 		[
@@ -38,16 +76,48 @@ void SHardReferenceViewerWindow::Construct(const FArguments& InArgs, TSharedPtr<
 	InitiateSearch();
 }
 
+TSet<FName> SHardReferenceViewerWindow::GetCollapsedPackages() const
+{
+	TSet<FHRVTreeViewItemPtr> ExpandedItems;
+	TreeView->GetExpandedItems(ExpandedItems);
+
+	TSet<FName> CollapsedPackages;
+	for(const FHRVTreeViewItemPtr Item : TreeViewData)
+	{
+		if(!ExpandedItems.Contains(Item))
+		{
+			CollapsedPackages.Add(Item->PackageId);
+		}
+	}
+	return CollapsedPackages;
+}
+
 void SHardReferenceViewerWindow::InitiateSearch()
 {
-	TreeViewData = SearchData.GatherSearchData(BlueprintGraph);
+	if(TreeView.IsValid())
+	{
+		TSet<FName> UserCollapsedPackages = GetCollapsedPackages();
+
+		TreeViewData = SearchData.GatherSearchData(BlueprintGraph);
+		TreeView->RebuildList();
+
+		// expand new items by default, unless they were intentionally collapsed.
+		for(const FHRVTreeViewItemPtr Item : TreeViewData)
+		{
+			const bool bWasCollapsed = UserCollapsedPackages.Contains(Item->PackageId);
+			const bool bShouldExpandItem = !bWasCollapsed;	
+			TreeView->SetItemExpansion(Item, bShouldExpandItem);
+		}
+	}
 	
 	const FText SummaryText = FText::Format(LOCTEXT("SummaryMessage", "This blueprint makes {0} references to other packages."), SearchData.GetNumPackagesReferenced());
 	HeaderText->SetText(SummaryText);
-	if(TreeView.IsValid())
-	{
-		TreeView->RequestTreeRefresh();
-	}
+}
+
+FReply SHardReferenceViewerWindow::OnRefreshClicked()
+{
+	InitiateSearch();
+	return FReply::Handled();
 }
 
 void SHardReferenceViewerWindow::OnDoubleClickTreeEntry(TSharedPtr<FHRVTreeViewItem> Item) const

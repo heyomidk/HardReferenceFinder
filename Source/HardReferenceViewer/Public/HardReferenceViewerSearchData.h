@@ -11,6 +11,7 @@ public:
 
 	bool bIsHeader = false;
 	int SizeOnDisk = 0;
+	FName PackageId = NAME_None;
 	FText Name;
 	FText Tooltip;
 	FGuid NodeGuid;
