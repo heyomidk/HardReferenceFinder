@@ -139,16 +139,14 @@ void FHardReferenceViewerSearchData::SearchGraphNodes(TMap<FName, FHRVTreeViewIt
 	{
 		if(Graph)
 		{
-			// @omidk TODO: Search node input parameters (ex: class input of a Spawn node)   
-					
-			for (UEdGraphNode* Node : Graph->Nodes)
+			for (const UEdGraphNode* Node : Graph->Nodes)
 			{
 				UPackage* FunctionPackage = nullptr;
-				if(UK2Node_CallFunction* CallFunctionNode = Cast<UK2Node_CallFunction>(Node))
+				if(const UK2Node_CallFunction* CallFunctionNode = Cast<UK2Node_CallFunction>(Node))
 				{
 					FunctionPackage = CallFunctionNode->FunctionReference.GetMemberParentPackage();
 				}
-				else if(UK2Node_DynamicCast* CastNode = Cast<UK2Node_DynamicCast>(Node))
+				else if(const UK2Node_DynamicCast* CastNode = Cast<UK2Node_DynamicCast>(Node))
 				{
 					if(CastNode->TargetType)
 					{
@@ -156,30 +154,77 @@ void FHardReferenceViewerSearchData::SearchGraphNodes(TMap<FName, FHRVTreeViewIt
 					}
 				}
 
-				if( FunctionPackage )
+				if( FHRVTreeViewItemPtr Result = CheckAddPackageResult(OutPackageMap, AssetRegistryModule, FunctionPackage) )
 				{
-					const FName PackageName = FunctionPackage->GetFName();
-					if(FHRVTreeViewItemPtr* FoundHeader = OutPackageMap.Find(PackageName))
-					{
-						FHRVTreeViewItemPtr Header = *FoundHeader;
-								
-						FAssetPackageData AssetPackageData;
-						UE::AssetRegistry::EExists Result = AssetRegistryModule.TryGetAssetPackageData(PackageName, AssetPackageData);
-						if(ensure(Result == UE::AssetRegistry::EExists::Exists))
-						{
-							FHRVTreeViewItemPtr Link = MakeShared<FHRVTreeViewItem>();
-								
-							Link->Name = Node->GetNodeTitle(ENodeTitleType::ListView);
-							Link->NodeGuid = Node->NodeGuid;
-							Link->SlateIcon = Node->GetIconAndTint(Link->IconColor);
+					Result->Name = Node->GetNodeTitle(ENodeTitleType::ListView);
+					Result->NodeGuid = Node->NodeGuid;
+					Result->SlateIcon = Node->GetIconAndTint(Result->IconColor);
+				}
 
-							Header->Children.Add(Link);
-						}
+				// Also search the pins of this node for any references to other packages
+				SearchNodePins(OutPackageMap, AssetRegistryModule, Node);
+			}
+		}
+	}
+}
+
+void FHardReferenceViewerSearchData::SearchNodePins(TMap<FName, FHRVTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const UEdGraphNode* Node) const
+{
+	if(Node == nullptr)
+	{
+		return;
+	}
+	
+	for(const UEdGraphPin* Pin : Node->Pins)
+	{
+		if(Pin->bHidden)
+		{
+			// skip hidden pins
+			continue;
+		}
+					
+		if(Pin->Direction == EGPD_Input)
+		{
+			if(const UObject* PinObject = Pin->DefaultObject)
+			{
+				UPackage* FunctionPackage = PinObject->GetPackage();
+				if( FHRVTreeViewItemPtr Result = CheckAddPackageResult(OutPackageMap, AssetRegistryModule, FunctionPackage) )
+				{
+					Result->Name = FText::Format(LOCTEXT("FunctionInput","{0} ({1})"), FText::FromString(Pin->GetName()), Node->GetNodeTitle(ENodeTitleType::ListView));
+					Result->NodeGuid = Node->NodeGuid;
+					if( const UEdGraphSchema* Schema = Pin->GetSchema() )
+					{
+						Result->IconColor = Schema->GetPinTypeColor(Pin->PinType);
 					}
+					Result->SlateIcon = FSlateIcon("EditorStyle", "Graph.Pin.Disconnected_VarA");
 				}
 			}
 		}
 	}
+}
+
+FHRVTreeViewItemPtr FHardReferenceViewerSearchData::CheckAddPackageResult(TMap<FName, FHRVTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const UPackage* Package) const
+{
+	if( Package )
+	{
+		const FName PackageName = Package->GetFName();
+		if(FHRVTreeViewItemPtr* FoundHeader = OutPackageMap.Find(PackageName))
+		{
+			FHRVTreeViewItemPtr Header = *FoundHeader;
+								
+			FAssetPackageData AssetPackageData;
+			UE::AssetRegistry::EExists Result = AssetRegistryModule.TryGetAssetPackageData(PackageName, AssetPackageData);
+			if(ensure(Result == UE::AssetRegistry::EExists::Exists))
+			{
+				FHRVTreeViewItemPtr Link = MakeShared<FHRVTreeViewItem>();
+				Header->Children.Add(Link);
+
+				return Link; 
+			}
+		}
+	}
+
+	return  nullptr;
 }
 
 
