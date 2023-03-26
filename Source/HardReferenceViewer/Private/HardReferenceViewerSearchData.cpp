@@ -2,9 +2,11 @@
 #include "AssetToolsModule.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "BlueprintEditor.h"
+#include "EdGraph/EdGraph.h"
 #include "K2Node_CallFunction.h"
 #include "K2Node_DynamicCast.h"
 #include "SSubobjectEditor.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "FHardReferenceViewerModule"
 
@@ -65,7 +67,8 @@ TArray<FHRVTreeViewItemPtr> FHardReferenceViewerSearchData::GatherSearchData(TWe
 		{
 			SearchGraphNodes(DependentPackageMap, AssetRegistryModule, Blueprint->UbergraphPages);
 			SearchGraphNodes(DependentPackageMap, AssetRegistryModule, Blueprint->FunctionGraphs);
-			// @omidk todo: Search member variables
+			SearchMemberVariables(DependentPackageMap, AssetRegistryModule, Blueprint);
+			// @omidk todo: Search local function variables
 			// @omidk todo: Search components
 		}
 	}
@@ -141,7 +144,7 @@ void FHardReferenceViewerSearchData::SearchGraphNodes(TMap<FName, FHRVTreeViewIt
 		{
 			for (const UEdGraphNode* Node : Graph->Nodes)
 			{
-				UPackage* FunctionPackage = nullptr;
+				const UPackage* FunctionPackage = nullptr;
 				if(const UK2Node_CallFunction* CallFunctionNode = Cast<UK2Node_CallFunction>(Node))
 				{
 					FunctionPackage = CallFunctionNode->FunctionReference.GetMemberParentPackage();
@@ -154,14 +157,14 @@ void FHardReferenceViewerSearchData::SearchGraphNodes(TMap<FName, FHRVTreeViewIt
 					}
 				}
 
-				if( FHRVTreeViewItemPtr Result = CheckAddPackageResult(OutPackageMap, AssetRegistryModule, FunctionPackage) )
+				if( const FHRVTreeViewItemPtr Result = CheckAddPackageResult(OutPackageMap, AssetRegistryModule, FunctionPackage) )
 				{
 					Result->Name = Node->GetNodeTitle(ENodeTitleType::ListView);
 					Result->NodeGuid = Node->NodeGuid;
 					Result->SlateIcon = Node->GetIconAndTint(Result->IconColor);
 				}
 
-				// Also search the pins of this node for any references to other packages
+				// Also search the pins of this node for any references to other packages, e.g. the 'Class' pin of a SpawnActor node.
 				SearchNodePins(OutPackageMap, AssetRegistryModule, Node);
 			}
 		}
@@ -187,8 +190,8 @@ void FHardReferenceViewerSearchData::SearchNodePins(TMap<FName, FHRVTreeViewItem
 		{
 			if(const UObject* PinObject = Pin->DefaultObject)
 			{
-				UPackage* FunctionPackage = PinObject->GetPackage();
-				if( FHRVTreeViewItemPtr Result = CheckAddPackageResult(OutPackageMap, AssetRegistryModule, FunctionPackage) )
+				const UPackage* FunctionPackage = PinObject->GetPackage();
+				if( const FHRVTreeViewItemPtr Result = CheckAddPackageResult(OutPackageMap, AssetRegistryModule, FunctionPackage) )
 				{
 					Result->Name = FText::Format(LOCTEXT("FunctionInput","{0} ({1})"), FText::FromString(Pin->GetName()), Node->GetNodeTitle(ENodeTitleType::ListView));
 					Result->NodeGuid = Node->NodeGuid;
@@ -203,22 +206,113 @@ void FHardReferenceViewerSearchData::SearchNodePins(TMap<FName, FHRVTreeViewItem
 	}
 }
 
+void FHardReferenceViewerSearchData::SearchMemberVariables(TMap<FName, FHRVTreeViewItemPtr>& OutPackageMap,	const FAssetRegistryModule& AssetRegistryModule, UBlueprint* Blueprint)
+{
+	TSet<FName> CurrentVars;
+	FBlueprintEditorUtils::GetClassVariableList(Blueprint, CurrentVars);
+	for(const FName& VarName : CurrentVars)
+	{
+		UBlueprint* SourceBlueprint = nullptr;
+		int32 VarIndex = FBlueprintEditorUtils::FindNewVariableIndexAndBlueprint(Blueprint, VarName, SourceBlueprint);
+		if (VarIndex != INDEX_NONE)
+		{
+			FBPVariableDescription Description = SourceBlueprint->NewVariables[VarIndex];
+			UClass* GeneratedClass = SourceBlueprint->GeneratedClass;
+			UObject* GeneratedCDO = GeneratedClass->GetDefaultObject();
+			FProperty* TargetProperty = FindFProperty<FProperty>(GeneratedClass, Description.VarName);
+
+			if(TargetProperty)
+			{
+				TArray<const FStructProperty*> EncounteredStructProps;
+				EPropertyObjectReferenceType ReferenceType = EPropertyObjectReferenceType::Strong;
+				bool bHasStrongReferences = TargetProperty->ContainsObjectReference(EncounteredStructProps, ReferenceType);
+				if(bHasStrongReferences)
+				{
+					void* TargetPropertyAddress = TargetProperty->ContainerPtrToValuePtr<void>(GeneratedCDO);
+					FSlateIcon ResultIcon;
+
+					struct PropertyAndAddressTuple
+					{
+						FProperty* Property = nullptr;
+						void* ValueAddress = nullptr;
+					};
+					TArray<PropertyAndAddressTuple> PropertiesToExamine;
+
+					if(const FArrayProperty* ArrayProperty = CastField<FArrayProperty>(TargetProperty))
+					{
+						ResultIcon = FSlateIcon("EditorStyle", "Kismet.VariableList.ArrayTypeIcon");
+						FScriptArrayHelper ArrayHelper(ArrayProperty, TargetPropertyAddress);
+						for(int i=0; i<ArrayHelper.Num(); ++i)
+						{
+							PropertiesToExamine.Add({ArrayProperty->Inner, ArrayHelper.GetRawPtr(i)});
+						}
+					}
+					else if(const FSetProperty* SetProperty = CastField<FSetProperty>(TargetProperty))
+					{
+						ResultIcon = FSlateIcon("EditorStyle", "Kismet.VariableList.SetTypeIcon");
+						FScriptSetHelper SetHelper(SetProperty, TargetPropertyAddress);
+						for(int i=0; i<SetHelper.Num(); ++i)
+						{
+							PropertiesToExamine.Add({SetHelper.GetElementProperty(), SetHelper.GetElementPtr(i)});
+						}
+					}
+					else if(const FMapProperty* MapProperty = CastField<FMapProperty>(TargetProperty))
+					{
+						ResultIcon = FSlateIcon("EditorStyle", "Kismet.VariableList.MapValueTypeIcon");
+						FScriptMapHelper MapHelper(MapProperty, TargetPropertyAddress);
+						for(int i=0; i<MapHelper.Num(); ++i)
+						{
+							PropertiesToExamine.Add({MapHelper.GetKeyProperty(), MapHelper.GetKeyPtr(i)});
+							PropertiesToExamine.Add({MapHelper.GetValueProperty(), MapHelper.GetValuePtr(i)});
+						}
+					}
+					else
+					{
+						ResultIcon = FSlateIcon("EditorStyle", "Kismet.VariableList.TypeIcon");
+						PropertiesToExamine.Add({TargetProperty, TargetPropertyAddress});
+					}
+
+					for (const PropertyAndAddressTuple& Tuple : PropertiesToExamine)
+					{
+						if( FObjectPropertyBase* ObjectProperty = CastField<FObjectPropertyBase>(Tuple.Property) )
+						{
+							UObject* Object = ObjectProperty->GetObjectPropertyValue(Tuple.ValueAddress);
+							if(Object)
+							{
+								const UPackage* Package = Object->GetPackage();
+								if( const FHRVTreeViewItemPtr Result = CheckAddPackageResult(OutPackageMap, AssetRegistryModule, Package) )
+								{
+									if( UEdGraphSchema_K2 const* Schema = GetDefault<UEdGraphSchema_K2>() )
+									{
+										Result->IconColor = Schema->GetPinTypeColor(Description.VarType);
+										Result->SlateIcon = ResultIcon;
+									}
+									Result->Name = FText::Format(LOCTEXT("MemberVariable","{0} (Variable)"), FText::FromName(Description.VarName));	
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 FHRVTreeViewItemPtr FHardReferenceViewerSearchData::CheckAddPackageResult(TMap<FName, FHRVTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const UPackage* Package) const
 {
 	if( Package )
 	{
 		const FName PackageName = Package->GetFName();
-		if(FHRVTreeViewItemPtr* FoundHeader = OutPackageMap.Find(PackageName))
+		if(const FHRVTreeViewItemPtr* FoundHeader = OutPackageMap.Find(PackageName))
 		{
-			FHRVTreeViewItemPtr Header = *FoundHeader;
+			const FHRVTreeViewItemPtr Header = *FoundHeader;
 								
 			FAssetPackageData AssetPackageData;
-			UE::AssetRegistry::EExists Result = AssetRegistryModule.TryGetAssetPackageData(PackageName, AssetPackageData);
+			const UE::AssetRegistry::EExists Result = AssetRegistryModule.TryGetAssetPackageData(PackageName, AssetPackageData);
 			if(ensure(Result == UE::AssetRegistry::EExists::Exists))
 			{
 				FHRVTreeViewItemPtr Link = MakeShared<FHRVTreeViewItem>();
 				Header->Children.Add(Link);
-
 				return Link; 
 			}
 		}
