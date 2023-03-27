@@ -22,6 +22,12 @@ public:
 };
 typedef TSharedPtr<FHRVTreeViewItem> FHRVTreeViewItemPtr;
 
+#if ENGINE_MAJOR_VERSION < 5
+typedef const TArray<UEdGraph*> FEdGraphArray;
+#else
+typedef const TArray<TObjectPtr<UEdGraph>> FEdGraphArray;
+#endif
+
 class FHardReferenceViewerSearchData
 {
 public:
@@ -34,11 +40,17 @@ private:
 	void Reset();
 	UObject* GetObjectContext(TWeakPtr<FBlueprintEditor> BlueprintEditor) const;
 	void GetPackageDependencies(TArray<FName>& OutPackageDependencies, int& OutSizeOnDisk, FAssetRegistryModule& AssetRegistryModule, TWeakPtr<FBlueprintEditor> BlueprintEditor) const;
-	void SearchGraphNodes(TMap<FName, FHRVTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const TArray<TObjectPtr<UEdGraph>>& EdGraphList) const;
+	void SearchGraphNodes(TMap<FName, FHRVTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const FEdGraphArray& EdGraphList) const;
 	void SearchNodePins(TMap<FName, FHRVTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const UEdGraphNode* Node) const;
 	void SearchMemberVariables(TMap<FName, FHRVTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, UBlueprint* Blueprint);
 	FHRVTreeViewItemPtr CheckAddPackageResult(TMap<FName, FHRVTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const UPackage* Package) const;
 
+	void GetAssetForPackages(const TArray<FName>& PackageNames, TMap<FName, FAssetData>& OutPackageToAssetData) const;
+	bool TryGetAssetPackageData(FName PathName, FAssetPackageData& OutPackageData) const;
+	FString GetAssetTypeName(const FAssetData& AssetData) const;
+	FAssetData GetAssetDataForObject(const UObject* Object) const;
+	
 	int SizeOnDisk = 0;
 	TArray<FHRVTreeViewItemPtr> TreeView;
 };
+
