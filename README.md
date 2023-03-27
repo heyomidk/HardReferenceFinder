@@ -19,3 +19,9 @@ If necessary, enable the plugin from the plugins windows.
 Open any blueprint with a graph or function view.
 
 ![Image showing how to summon the hard references viewport](Documentation/usage-guide.png)
+
+
+# Known Issues
+-[ ] Does not find component references
+-[ ] Does not find local variables in function graphs
+-[ ] Needs testing
