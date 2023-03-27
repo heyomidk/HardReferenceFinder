@@ -216,7 +216,7 @@ const FTableRowStyle* SHardReferenceViewerWindow::GetStyle_HeaderRow() const
 #if ENGINE_MAJOR_VERSION < 5
 	return &FCoreStyle::Get().GetWidgetStyle<FTableRowStyle>("TableView.Row");
 #else
-	return &AppStyle::Get().GetWidgetStyle<FTableRowStyle>("ShowParentsTableView.Row");
+	return &FAppStyle::Get().GetWidgetStyle<FTableRowStyle>("ShowParentsTableView.Row");
 #endif
 }
 

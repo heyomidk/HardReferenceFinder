@@ -5,10 +5,10 @@
 #include "EdGraph/EdGraph.h"
 #include "K2Node_CallFunction.h"
 #include "K2Node_DynamicCast.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 #if ENGINE_MAJOR_VERSION < 5
 #include "SSCSEditor.h"
-#include "Kismet2/BlueprintEditorUtils.h"
 #else
 #include "SSubobjectEditor.h"
 #endif
