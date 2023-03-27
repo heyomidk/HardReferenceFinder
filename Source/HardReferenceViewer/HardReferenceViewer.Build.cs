@@ -36,7 +36,6 @@ public class HardReferenceViewer : ModuleRules
 			{
 				"Projects",
 				"InputCore",
-				"EditorFramework",
 				"UnrealEd",
 				"ToolMenus",
 				"CoreUObject",
@@ -44,13 +43,28 @@ public class HardReferenceViewer : ModuleRules
 				"Slate",
 				"SlateCore",
 				"Kismet",
-				"SubobjectEditor",
 				"AssetRegistry",
 				"BlueprintGraph",
 				"AssetTools",
 			}
 			);
-		
+
+		if (Target.Version.MajorVersion < 5)
+		{
+			PrivateDependencyModuleNames.AddRange(
+				new string[]
+				{
+					"EditorStyle", // only used in <UE4
+				});
+		}
+		else // MajorVersion >= 5
+		{
+			PrivateDependencyModuleNames.AddRange(
+				new string[]
+				{
+					"SubobjectEditor",
+				});
+		}
 		
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[]

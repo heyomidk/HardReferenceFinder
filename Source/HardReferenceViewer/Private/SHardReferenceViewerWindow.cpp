@@ -6,6 +6,10 @@
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
 
+#if ENGINE_MAJOR_VERSION < 5
+#include "EditorStyleSet.h"
+#endif
+
 #define LOCTEXT_NAMESPACE "FHardReferenceViewerModule"
 
 void SHardReferenceViewerWindow::Construct(const FArguments& InArgs, TSharedPtr<FBlueprintEditor> InBlueprintGraph)
@@ -31,9 +35,7 @@ void SHardReferenceViewerWindow::Construct(const FArguments& InArgs, TSharedPtr<
 			.Padding(0.f, 0.0f)
 			[
 				SNew(SButton)
-				.ButtonStyle( &FAppStyle::Get().GetWidgetStyle< FButtonStyle >( "Button" ) )
 				.OnClicked(this, &SHardReferenceViewerWindow::OnRefreshClicked)
-				.ForegroundColor(FSlateColor::UseStyle())
 				[
 					SNew(SHorizontalBox)
 					+ SHorizontalBox::Slot()
@@ -43,8 +45,7 @@ void SHardReferenceViewerWindow::Construct(const FArguments& InArgs, TSharedPtr<
 					.AutoWidth()
 					[
 						SNew(SImage)
-						.ColorAndOpacity(FSlateColor::UseForeground())
-						.Image(FAppStyle::GetBrush("Icons.Refresh"))
+						.Image(GetBrush_RefreshIcon())
 					]
 					+ SHorizontalBox::Slot()
 					.Padding(FMargin(8., 0, 0, 0))
@@ -52,7 +53,6 @@ void SHardReferenceViewerWindow::Construct(const FArguments& InArgs, TSharedPtr<
 					.AutoWidth()
 					[
 						SNew(STextBlock)
-						.TextStyle(FAppStyle::Get(), "SmallButtonText")
 						.Text(LOCTEXT("Refresh", "Refresh"))
 					]
 				]
@@ -61,7 +61,7 @@ void SHardReferenceViewerWindow::Construct(const FArguments& InArgs, TSharedPtr<
 		+ SVerticalBox::Slot()
 		[
 			SNew(SBorder)
-			.BorderImage(FAppStyle::Get().GetBrush("Brushes.Recessed"))
+			.BorderImage(GetBrush_MenuBackground())
 			.Padding(FMargin(8.f, 8.f, 4.f, 0.f))
 			[
 				SAssignNew(TreeView, SHRVReferenceTreeType)
@@ -146,7 +146,7 @@ TSharedRef<ITableRow> SHardReferenceViewerWindow::OnGenerateRow(FHRVTreeViewItem
 		const FText CategoryHeaderText = FText::Format(LOCTEXT("CategoryHeader", "{1} ({0}MB)"), Item->SizeOnDisk/1000.f, Item->Name);
 
 		return SNew(STableRow<TSharedPtr<FName>>, TableViewBase)
-			.Style( &FAppStyle::Get().GetWidgetStyle<FTableRowStyle>("ShowParentsTableView.Row") )
+			.Style( GetStyle_HeaderRow() )
 			.Padding(FMargin(2.f, 3.f, 2.f, 3.f))
 			[
 				SNew(SHorizontalBox)
@@ -191,6 +191,33 @@ TSharedRef<ITableRow> SHardReferenceViewerWindow::OnGenerateRow(FHRVTreeViewItem
 			]
 		];
 	}
+}
+
+const FSlateBrush* SHardReferenceViewerWindow::GetBrush_MenuBackground() const
+{
+#if ENGINE_MAJOR_VERSION < 5
+	return FEditorStyle::GetBrush("Menu.Background");
+#else
+	return FAppStyle::Get().GetBrush("Brushes.Recessed");
+#endif
+}
+
+const FSlateBrush* SHardReferenceViewerWindow::GetBrush_RefreshIcon() const
+{
+#if ENGINE_MAJOR_VERSION < 5
+	return FEditorStyle::GetBrush("Icons.Refresh");
+#else
+	return FAppStyle::GetBrush("Icons.Refresh");
+#endif
+}
+
+const FTableRowStyle* SHardReferenceViewerWindow::GetStyle_HeaderRow() const
+{
+#if ENGINE_MAJOR_VERSION < 5
+	return &FCoreStyle::Get().GetWidgetStyle<FTableRowStyle>("TableView.Row");
+#else
+	return &FAppStyle::Get().GetWidgetStyle<FTableRowStyle>("ShowParentsTableView.Row");
+#endif
 }
 
 #undef LOCTEXT_NAMESPACE

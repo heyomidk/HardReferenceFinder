@@ -5,8 +5,13 @@
 #include "EdGraph/EdGraph.h"
 #include "K2Node_CallFunction.h"
 #include "K2Node_DynamicCast.h"
-#include "SSubobjectEditor.h"
 #include "Kismet2/BlueprintEditorUtils.h"
+
+#if ENGINE_MAJOR_VERSION < 5
+#include "SSCSEditor.h"
+#else
+#include "SSubobjectEditor.h"
+#endif
 
 #define LOCTEXT_NAMESPACE "FHardReferenceViewerModule"
 
@@ -24,17 +29,17 @@ TArray<FHRVTreeViewItemPtr> FHardReferenceViewerSearchData::GatherSearchData(TWe
 	// Populate display information from package dependencies
 	{
 		TMap<FName, FAssetData> DependencyToAssetDataMap;
-		UE::AssetRegistry::GetAssetForPackages(PackageDependencies, DependencyToAssetDataMap);
+		GetAssetForPackages(PackageDependencies, DependencyToAssetDataMap);
 
 		for (auto MapIt = DependencyToAssetDataMap.CreateConstIterator(); MapIt; ++MapIt)
 		{
 			const FName& PathName = MapIt.Key();
 			const FAssetData& AssetData = MapIt.Value();
-			FString AssetTypeName = AssetData.AssetClassPath.GetAssetName().ToString();
+			FString AssetTypeName = GetAssetTypeName(AssetData);
 			FString FileName = FPaths::GetCleanFilename(PathName.ToString());
 		
 			FAssetPackageData AssetPackageData;
-			AssetRegistryModule.TryGetAssetPackageData(PathName, AssetPackageData);
+			TryGetAssetPackageData(PathName, AssetPackageData);
 
 			if( FHRVTreeViewItemPtr Header = MakeShared<FHRVTreeViewItem>() )
 			{
@@ -105,7 +110,15 @@ UObject* FHardReferenceViewerSearchData::GetObjectContext(TWeakPtr<FBlueprintEdi
 	{
 		return nullptr;
 	}
-	
+
+#if ENGINE_MAJOR_VERSION < 5
+	TSharedPtr<class SSCSEditor> SCSEditorPtr = BlueprintEditor.Pin()->GetSCSEditor();
+	if(!SCSEditorPtr.IsValid())
+	{
+		return nullptr;
+	}
+	return SCSEditorPtr->GetActorContext();
+#else
 	TSharedPtr<SSubobjectEditor> SubobjectEditorPtr = BlueprintEditor.Pin()->GetSubobjectEditor();
 	SSubobjectEditor* SubobjectEditorWidget = SubobjectEditorPtr.Get();
 	if(SubobjectEditorWidget == nullptr)
@@ -115,6 +128,7 @@ UObject* FHardReferenceViewerSearchData::GetObjectContext(TWeakPtr<FBlueprintEdi
 		
 	UObject* Object = SubobjectEditorWidget->GetObjectContext();
 	return Object;
+#endif
 }
 
 void FHardReferenceViewerSearchData::GetPackageDependencies(TArray<FName>& OutPackageDependencies, int& OutSizeOnDisk, FAssetRegistryModule& AssetRegistryModule, TWeakPtr<FBlueprintEditor> BlueprintEditor) const
@@ -125,18 +139,17 @@ void FHardReferenceViewerSearchData::GetPackageDependencies(TArray<FName>& OutPa
 		return;
 	}
 	
-	FString ObjectPath = Object->GetPathName();
-	FAssetData ExistingAsset = AssetRegistryModule.Get().GetAssetByObjectPath(FSoftObjectPath(ObjectPath));
+	FAssetData ExistingAsset = GetAssetDataForObject(Object);
 
 	UE::AssetRegistry::FDependencyQuery Flags(UE::AssetRegistry::EDependencyQuery::Hard);
 	AssetRegistryModule.GetDependencies(ExistingAsset.PackageName, OutPackageDependencies, UE::AssetRegistry::EDependencyCategory::Package, Flags);
 	
 	FAssetPackageData AssetPackageData;
-	AssetRegistryModule.TryGetAssetPackageData(ExistingAsset.PackageName, AssetPackageData);
+	TryGetAssetPackageData(ExistingAsset.PackageName, AssetPackageData);
 	OutSizeOnDisk = AssetPackageData.DiskSize;
 }
 
-void FHardReferenceViewerSearchData::SearchGraphNodes(TMap<FName, FHRVTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const TArray<TObjectPtr<UEdGraph>>& EdGraphList) const
+void FHardReferenceViewerSearchData::SearchGraphNodes(TMap<FName, FHRVTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const FEdGraphArray& EdGraphList) const
 {
 	for(UEdGraph* Graph : EdGraphList)
 	{
@@ -308,8 +321,8 @@ FHRVTreeViewItemPtr FHardReferenceViewerSearchData::CheckAddPackageResult(TMap<F
 			const FHRVTreeViewItemPtr Header = *FoundHeader;
 								
 			FAssetPackageData AssetPackageData;
-			const UE::AssetRegistry::EExists Result = AssetRegistryModule.TryGetAssetPackageData(PackageName, AssetPackageData);
-			if(ensure(Result == UE::AssetRegistry::EExists::Exists))
+			const bool bExists = TryGetAssetPackageData(PackageName, AssetPackageData);
+			if(ensure(bExists))
 			{
 				FHRVTreeViewItemPtr Link = MakeShared<FHRVTreeViewItem>();
 				Header->Children.Add(Link);
@@ -321,5 +334,67 @@ FHRVTreeViewItemPtr FHardReferenceViewerSearchData::CheckAddPackageResult(TMap<F
 	return  nullptr;
 }
 
+void FHardReferenceViewerSearchData::GetAssetForPackages(const TArray<FName>& PackageNames, TMap<FName, FAssetData>& OutPackageToAssetData) const
+{
+#if ENGINE_MAJOR_VERSION < 5
+		FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	FARFilter Filter;
+	for ( auto PackageIt = PackageNames.CreateConstIterator(); PackageIt; ++PackageIt )
+	{
+		const FString& PackageName = (*PackageIt).ToString();
+		Filter.PackageNames.Add(*PackageIt);
+	}
+
+	TArray<FAssetData> AssetDataList;
+	AssetRegistryModule.Get().GetAssets(Filter, AssetDataList);
+	for ( auto AssetIt = AssetDataList.CreateConstIterator(); AssetIt; ++AssetIt )
+	{
+		OutPackageToAssetData.Add((*AssetIt).PackageName, *AssetIt);
+	}
+#else
+	UE::AssetRegistry::GetAssetForPackages(PackageNames, OutPackageToAssetData);
+#endif
+}
+
+bool FHardReferenceViewerSearchData::TryGetAssetPackageData(FName PathName, FAssetPackageData& OutPackageData) const
+{
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+
+#if ENGINE_MAJOR_VERSION < 5
+	if(const FAssetPackageData* pAssetPackageData = AssetRegistryModule.Get().GetAssetPackageData(PathName))
+	{
+		OutPackageData = *pAssetPackageData;
+		return true;
+	}
+#else
+	const UE::AssetRegistry::EExists Result = AssetRegistryModule.TryGetAssetPackageData(PathName, OutPackageData);
+	if(Result == UE::AssetRegistry::EExists::Exists)
+	{
+		return true;
+	}
+#endif
+	return false;
+}
+
+FString FHardReferenceViewerSearchData::GetAssetTypeName(const FAssetData& AssetData) const
+{
+#if ENGINE_MAJOR_VERSION < 5
+	return AssetData.AssetClass.ToString();
+#else
+	return AssetData.AssetClassPath.GetAssetName().ToString();
+#endif
+}
+
+FAssetData FHardReferenceViewerSearchData::GetAssetDataForObject(const UObject* Object) const
+{
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	FString ObjectPath = Object->GetPathName();
+
+#if ENGINE_MAJOR_VERSION < 5
+	return AssetRegistryModule.Get().GetAssetByObjectPath(*ObjectPath);
+#else
+	return AssetRegistryModule.Get().GetAssetByObjectPath(FSoftObjectPath(ObjectPath));
+#endif
+}
 
 #undef LOCTEXT_NAMESPACE

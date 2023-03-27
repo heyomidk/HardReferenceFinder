@@ -25,6 +25,10 @@ private:
 	void OnDoubleClickTreeEntry(TSharedPtr<FHRVTreeViewItem> Item) const;
 	void OnGetChildren(FHRVTreeViewItemPtr InItem, TArray< FHRVTreeViewItemPtr >& OutChildren) const;
 	TSharedRef<ITableRow> OnGenerateRow(FHRVTreeViewItemPtr Item, const TSharedRef<STableViewBase>& TableViewBase) const;
+
+	const FSlateBrush* GetBrush_MenuBackground() const;
+	const FSlateBrush* GetBrush_RefreshIcon() const;
+	const FTableRowStyle* GetStyle_HeaderRow() const;
 	
 	/* The graph this window is operating on */
 	TWeakPtr<FBlueprintEditor> BlueprintGraph;
