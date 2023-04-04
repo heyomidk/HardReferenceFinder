@@ -5,9 +5,9 @@
 #include "CoreMinimal.h"
 #include "WorkflowOrientedApp/WorkflowTabFactory.h"
 
-struct FHardReferenceViewerSummoner : public FWorkflowTabFactory
+struct FHardReferenceFinderSummoner : public FWorkflowTabFactory
 {
-	FHardReferenceViewerSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp);
+	FHardReferenceFinderSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp);
 
 	virtual TSharedRef<SWidget> CreateTabBody(const FWorkflowTabSpawnInfo& Info) const override;
 

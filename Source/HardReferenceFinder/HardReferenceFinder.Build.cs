@@ -2,9 +2,9 @@
 
 using UnrealBuildTool;
 
-public class HardReferenceViewer : ModuleRules
+public class HardReferenceFinder : ModuleRules
 {
-	public HardReferenceViewer(ReadOnlyTargetRules Target) : base(Target)
+	public HardReferenceFinder(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		

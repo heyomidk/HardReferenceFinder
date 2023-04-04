@@ -6,7 +6,7 @@
 #include "Styling/SlateStyle.h"
 
 /**  */
-class FHardReferenceViewerStyle
+class FHardReferenceFinderStyle
 {
 public:
 

@@ -1,7 +1,7 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
-#include "HardReferenceViewerSearchData.h"
+#include "HardReferenceFinderSearchData.h"
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/Views/STableViewBase.h"
 #include "Widgets/Views/STableRow.h"
@@ -9,22 +9,22 @@
 
 class FBlueprintEditor;
 
-class SHardReferenceViewerWindow : public SCompoundWidget
+class SHardReferenceFinderWindow : public SCompoundWidget
 {
-	SLATE_BEGIN_ARGS(SHardReferenceViewerWindow) {};
+	SLATE_BEGIN_ARGS(SHardReferenceFinderWindow) {};
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs, TSharedPtr<FBlueprintEditor> InBlueprintGraph);
 
 private:
-	typedef STreeView<FHRVTreeViewItemPtr> SHRVReferenceTreeType;
+	typedef STreeView<FHRFTreeViewItemPtr> SHRFTreeType;
 	
 	TSet<FName> GetCollapsedPackages() const;
 	void InitiateSearch();
 	FReply OnRefreshClicked();
-	void OnDoubleClickTreeEntry(TSharedPtr<FHRVTreeViewItem> Item) const;
-	void OnGetChildren(FHRVTreeViewItemPtr InItem, TArray< FHRVTreeViewItemPtr >& OutChildren) const;
-	TSharedRef<ITableRow> OnGenerateRow(FHRVTreeViewItemPtr Item, const TSharedRef<STableViewBase>& TableViewBase) const;
+	void OnDoubleClickTreeEntry(TSharedPtr<FHRFTreeViewItem> Item) const;
+	void OnGetChildren(FHRFTreeViewItemPtr InItem, TArray< FHRFTreeViewItemPtr >& OutChildren) const;
+	TSharedRef<ITableRow> OnGenerateRow(FHRFTreeViewItemPtr Item, const TSharedRef<STableViewBase>& TableViewBase) const;
 
 	const FSlateBrush* GetBrush_MenuBackground() const;
 	const FSlateBrush* GetBrush_RefreshIcon() const;
@@ -34,16 +34,16 @@ private:
 	TWeakPtr<FBlueprintEditor> BlueprintGraph;
 	
 	/* Stores the data from searching the graph for references*/
-	FHardReferenceViewerSearchData SearchData;
+	FHardReferenceFinderSearchData SearchData;
 
 	/* Stores the list of items dispalyed by the tree view widget */
-	TArray<TSharedPtr<FHRVTreeViewItem>> TreeViewData;
+	TArray<TSharedPtr<FHRFTreeViewItem>> TreeViewData;
 
 	/* Holds a reference to the header widget */
 	TSharedPtr<STextBlock> HeaderText;
 
 	/* Holds a reference to the tree view*/
-	TSharedPtr<SHRVReferenceTreeType> TreeView;
+	TSharedPtr<SHRFTreeType> TreeView;
 };
 
 

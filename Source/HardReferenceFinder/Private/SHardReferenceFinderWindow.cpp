@@ -1,8 +1,8 @@
 ﻿
-#include "SHardReferenceViewerWindow.h"
+#include "SHardReferenceFinderWindow.h"
 #include "BlueprintEditor.h"
 #include "GraphEditorSettings.h"
-#include "HardReferenceViewerSearchData.h"
+#include "HardReferenceFinderSearchData.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
 
@@ -10,9 +10,9 @@
 #include "EditorStyleSet.h"
 #endif
 
-#define LOCTEXT_NAMESPACE "FHardReferenceViewerModule"
+#define LOCTEXT_NAMESPACE "FHardReferenceFinderModule"
 
-void SHardReferenceViewerWindow::Construct(const FArguments& InArgs, TSharedPtr<FBlueprintEditor> InBlueprintGraph)
+void SHardReferenceFinderWindow::Construct(const FArguments& InArgs, TSharedPtr<FBlueprintEditor> InBlueprintGraph)
 {
 	BlueprintGraph = InBlueprintGraph;
 	
@@ -35,7 +35,7 @@ void SHardReferenceViewerWindow::Construct(const FArguments& InArgs, TSharedPtr<
 			.Padding(0.f, 0.0f)
 			[
 				SNew(SButton)
-				.OnClicked(this, &SHardReferenceViewerWindow::OnRefreshClicked)
+				.OnClicked(this, &SHardReferenceFinderWindow::OnRefreshClicked)
 				[
 					SNew(SHorizontalBox)
 					+ SHorizontalBox::Slot()
@@ -64,11 +64,11 @@ void SHardReferenceViewerWindow::Construct(const FArguments& InArgs, TSharedPtr<
 			.BorderImage(GetBrush_MenuBackground())
 			.Padding(FMargin(8.f, 8.f, 4.f, 0.f))
 			[
-				SAssignNew(TreeView, SHRVReferenceTreeType)
+				SAssignNew(TreeView, SHRFTreeType)
 				.TreeItemsSource(&TreeViewData)
-				.OnGetChildren(this, &SHardReferenceViewerWindow::OnGetChildren)
-				.OnGenerateRow(this, &SHardReferenceViewerWindow::OnGenerateRow)
-				.OnMouseButtonDoubleClick(this, &SHardReferenceViewerWindow::OnDoubleClickTreeEntry)
+				.OnGetChildren(this, &SHardReferenceFinderWindow::OnGetChildren)
+				.OnGenerateRow(this, &SHardReferenceFinderWindow::OnGenerateRow)
+				.OnMouseButtonDoubleClick(this, &SHardReferenceFinderWindow::OnDoubleClickTreeEntry)
 			]
 		]
 	];
@@ -76,13 +76,13 @@ void SHardReferenceViewerWindow::Construct(const FArguments& InArgs, TSharedPtr<
 	InitiateSearch();
 }
 
-TSet<FName> SHardReferenceViewerWindow::GetCollapsedPackages() const
+TSet<FName> SHardReferenceFinderWindow::GetCollapsedPackages() const
 {
-	TSet<FHRVTreeViewItemPtr> ExpandedItems;
+	TSet<FHRFTreeViewItemPtr> ExpandedItems;
 	TreeView->GetExpandedItems(ExpandedItems);
 
 	TSet<FName> CollapsedPackages;
-	for(const FHRVTreeViewItemPtr Item : TreeViewData)
+	for(const FHRFTreeViewItemPtr Item : TreeViewData)
 	{
 		if(!ExpandedItems.Contains(Item))
 		{
@@ -92,7 +92,7 @@ TSet<FName> SHardReferenceViewerWindow::GetCollapsedPackages() const
 	return CollapsedPackages;
 }
 
-void SHardReferenceViewerWindow::InitiateSearch()
+void SHardReferenceFinderWindow::InitiateSearch()
 {
 	if(TreeView.IsValid())
 	{
@@ -102,7 +102,7 @@ void SHardReferenceViewerWindow::InitiateSearch()
 		TreeView->RebuildList();
 
 		// expand new items by default, unless they were intentionally collapsed.
-		for(const FHRVTreeViewItemPtr Item : TreeViewData)
+		for(const FHRFTreeViewItemPtr Item : TreeViewData)
 		{
 			const bool bWasCollapsed = UserCollapsedPackages.Contains(Item->PackageId);
 			const bool bShouldExpandItem = !bWasCollapsed;	
@@ -114,13 +114,13 @@ void SHardReferenceViewerWindow::InitiateSearch()
 	HeaderText->SetText(SummaryText);
 }
 
-FReply SHardReferenceViewerWindow::OnRefreshClicked()
+FReply SHardReferenceFinderWindow::OnRefreshClicked()
 {
 	InitiateSearch();
 	return FReply::Handled();
 }
 
-void SHardReferenceViewerWindow::OnDoubleClickTreeEntry(TSharedPtr<FHRVTreeViewItem> Item) const
+void SHardReferenceFinderWindow::OnDoubleClickTreeEntry(TSharedPtr<FHRFTreeViewItem> Item) const
 {
 	if(Item.IsValid() && BlueprintGraph.IsValid())
 	{
@@ -134,12 +134,12 @@ void SHardReferenceViewerWindow::OnDoubleClickTreeEntry(TSharedPtr<FHRVTreeViewI
 	}
 }
 
-void SHardReferenceViewerWindow::OnGetChildren(FHRVTreeViewItemPtr InItem, TArray<FHRVTreeViewItemPtr>& OutChildren) const
+void SHardReferenceFinderWindow::OnGetChildren(FHRFTreeViewItemPtr InItem, TArray<FHRFTreeViewItemPtr>& OutChildren) const
 {
 	OutChildren += InItem->Children;
 }
 
-TSharedRef<ITableRow> SHardReferenceViewerWindow::OnGenerateRow(FHRVTreeViewItemPtr Item, const TSharedRef<STableViewBase>& TableViewBase) const
+TSharedRef<ITableRow> SHardReferenceFinderWindow::OnGenerateRow(FHRFTreeViewItemPtr Item, const TSharedRef<STableViewBase>& TableViewBase) const
 {
 	if(Item->bIsHeader)
 	{
@@ -193,7 +193,7 @@ TSharedRef<ITableRow> SHardReferenceViewerWindow::OnGenerateRow(FHRVTreeViewItem
 	}
 }
 
-const FSlateBrush* SHardReferenceViewerWindow::GetBrush_MenuBackground() const
+const FSlateBrush* SHardReferenceFinderWindow::GetBrush_MenuBackground() const
 {
 #if ENGINE_MAJOR_VERSION < 5
 	return FEditorStyle::GetBrush("Menu.Background");
@@ -202,7 +202,7 @@ const FSlateBrush* SHardReferenceViewerWindow::GetBrush_MenuBackground() const
 #endif
 }
 
-const FSlateBrush* SHardReferenceViewerWindow::GetBrush_RefreshIcon() const
+const FSlateBrush* SHardReferenceFinderWindow::GetBrush_RefreshIcon() const
 {
 #if ENGINE_MAJOR_VERSION < 5
 	return FEditorStyle::GetBrush("Icons.Refresh");
@@ -211,7 +211,7 @@ const FSlateBrush* SHardReferenceViewerWindow::GetBrush_RefreshIcon() const
 #endif
 }
 
-const FTableRowStyle* SHardReferenceViewerWindow::GetStyle_HeaderRow() const
+const FTableRowStyle* SHardReferenceFinderWindow::GetStyle_HeaderRow() const
 {
 #if ENGINE_MAJOR_VERSION < 5
 	return &FCoreStyle::Get().GetWidgetStyle<FTableRowStyle>("TableView.Row");

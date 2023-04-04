@@ -2,7 +2,7 @@
 	"FileVersion": 3,
 	"Version": 1,
 	"VersionName": "1.0",
-	"FriendlyName": "HardReferenceViewer",
+	"FriendlyName": "HardReferenceFinder",
 	"Description": "Plugin that shows hard referencing nodes in a blueprint graph.",
 	"Category": "Other",
 	"CreatedBy": "Omid Kiarostami",
@@ -16,7 +16,7 @@
 	"Installed": false,
 	"Modules": [
 		{
-			"Name": "HardReferenceViewer",
+			"Name": "HardReferenceFinder",
 			"Type": "Editor",
 			"LoadingPhase": "PostEngineInit"
 		}

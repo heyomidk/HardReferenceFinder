@@ -1,4 +1,4 @@
-﻿#include "HardReferenceViewerSearchData.h"
+﻿#include "HardReferenceFinderSearchData.h"
 #include "AssetToolsModule.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "BlueprintEditor.h"
@@ -13,13 +13,13 @@
 #include "SSubobjectEditor.h"
 #endif
 
-#define LOCTEXT_NAMESPACE "FHardReferenceViewerModule"
+#define LOCTEXT_NAMESPACE "FHardReferenceFinderModule"
 
-TArray<FHRVTreeViewItemPtr> FHardReferenceViewerSearchData::GatherSearchData(TWeakPtr<FBlueprintEditor> BlueprintEditor)
+TArray<FHRFTreeViewItemPtr> FHardReferenceFinderSearchData::GatherSearchData(TWeakPtr<FBlueprintEditor> BlueprintEditor)
 {
 	Reset();
 
-	TMap<FName, FHRVTreeViewItemPtr> DependentPackageMap;
+	TMap<FName, FHRFTreeViewItemPtr> DependentPackageMap;
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	
 	// Get this blueprints package dependencies from the blueprint editor 
@@ -41,7 +41,7 @@ TArray<FHRVTreeViewItemPtr> FHardReferenceViewerSearchData::GatherSearchData(TWe
 			FAssetPackageData AssetPackageData;
 			TryGetAssetPackageData(PathName, AssetPackageData);
 
-			if( FHRVTreeViewItemPtr Header = MakeShared<FHRVTreeViewItem>() )
+			if( FHRFTreeViewItemPtr Header = MakeShared<FHRFTreeViewItem>() )
 			{
 				Header->bIsHeader = true;
 				Header->PackageId = PathName;
@@ -79,18 +79,18 @@ TArray<FHRVTreeViewItemPtr> FHardReferenceViewerSearchData::GatherSearchData(TWe
 	}
 
 	// If we didn't discover any references to a package make a note
-	for(FHRVTreeViewItemPtr HeaderItem : TreeView)
+	for(FHRFTreeViewItemPtr HeaderItem : TreeView)
 	{
 		if(HeaderItem->Children.Num() <= 0)
 		{
-			FHRVTreeViewItemPtr ChildItem = MakeShared<FHRVTreeViewItem>();
+			FHRFTreeViewItemPtr ChildItem = MakeShared<FHRFTreeViewItem>();
 			HeaderItem->Children.Add(ChildItem);
 			ChildItem->Name = LOCTEXT("UnknownSource", "Unknown source");
 		}
 	}
 	
 	// sort from largest to smallest
-	TreeView.Sort([](FHRVTreeViewItemPtr Lhs, FHRVTreeViewItemPtr Rhs)
+	TreeView.Sort([](FHRFTreeViewItemPtr Lhs, FHRFTreeViewItemPtr Rhs)
 	{
 		return Lhs->SizeOnDisk > Rhs->SizeOnDisk;
 	});
@@ -98,13 +98,13 @@ TArray<FHRVTreeViewItemPtr> FHardReferenceViewerSearchData::GatherSearchData(TWe
 	return TreeView;
 }
 
-void FHardReferenceViewerSearchData::Reset()
+void FHardReferenceFinderSearchData::Reset()
 {
 	SizeOnDisk = 0;
 	TreeView.Reset();
 }
 
-UObject* FHardReferenceViewerSearchData::GetObjectContext(TWeakPtr<FBlueprintEditor> BlueprintEditor) const
+UObject* FHardReferenceFinderSearchData::GetObjectContext(TWeakPtr<FBlueprintEditor> BlueprintEditor) const
 {
 	if(!BlueprintEditor.IsValid())
 	{
@@ -131,7 +131,7 @@ UObject* FHardReferenceViewerSearchData::GetObjectContext(TWeakPtr<FBlueprintEdi
 #endif
 }
 
-void FHardReferenceViewerSearchData::GetPackageDependencies(TArray<FName>& OutPackageDependencies, int& OutSizeOnDisk, FAssetRegistryModule& AssetRegistryModule, TWeakPtr<FBlueprintEditor> BlueprintEditor) const
+void FHardReferenceFinderSearchData::GetPackageDependencies(TArray<FName>& OutPackageDependencies, int& OutSizeOnDisk, FAssetRegistryModule& AssetRegistryModule, TWeakPtr<FBlueprintEditor> BlueprintEditor) const
 {
 	UObject* Object = GetObjectContext(BlueprintEditor);
 	if(Object == nullptr)
@@ -149,7 +149,7 @@ void FHardReferenceViewerSearchData::GetPackageDependencies(TArray<FName>& OutPa
 	OutSizeOnDisk = AssetPackageData.DiskSize;
 }
 
-void FHardReferenceViewerSearchData::SearchGraphNodes(TMap<FName, FHRVTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const FEdGraphArray& EdGraphList) const
+void FHardReferenceFinderSearchData::SearchGraphNodes(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const FEdGraphArray& EdGraphList) const
 {
 	for(UEdGraph* Graph : EdGraphList)
 	{
@@ -170,7 +170,7 @@ void FHardReferenceViewerSearchData::SearchGraphNodes(TMap<FName, FHRVTreeViewIt
 					}
 				}
 
-				if( const FHRVTreeViewItemPtr Result = CheckAddPackageResult(OutPackageMap, AssetRegistryModule, FunctionPackage) )
+				if( const FHRFTreeViewItemPtr Result = CheckAddPackageResult(OutPackageMap, AssetRegistryModule, FunctionPackage) )
 				{
 					Result->Name = Node->GetNodeTitle(ENodeTitleType::ListView);
 					Result->NodeGuid = Node->NodeGuid;
@@ -184,7 +184,7 @@ void FHardReferenceViewerSearchData::SearchGraphNodes(TMap<FName, FHRVTreeViewIt
 	}
 }
 
-void FHardReferenceViewerSearchData::SearchNodePins(TMap<FName, FHRVTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const UEdGraphNode* Node) const
+void FHardReferenceFinderSearchData::SearchNodePins(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const UEdGraphNode* Node) const
 {
 	if(Node == nullptr)
 	{
@@ -204,7 +204,7 @@ void FHardReferenceViewerSearchData::SearchNodePins(TMap<FName, FHRVTreeViewItem
 			if(const UObject* PinObject = Pin->DefaultObject)
 			{
 				const UPackage* FunctionPackage = PinObject->GetPackage();
-				if( const FHRVTreeViewItemPtr Result = CheckAddPackageResult(OutPackageMap, AssetRegistryModule, FunctionPackage) )
+				if( const FHRFTreeViewItemPtr Result = CheckAddPackageResult(OutPackageMap, AssetRegistryModule, FunctionPackage) )
 				{
 					Result->Name = FText::Format(LOCTEXT("FunctionInput","{0} ({1})"), FText::FromString(Pin->GetName()), Node->GetNodeTitle(ENodeTitleType::ListView));
 					Result->NodeGuid = Node->NodeGuid;
@@ -219,7 +219,7 @@ void FHardReferenceViewerSearchData::SearchNodePins(TMap<FName, FHRVTreeViewItem
 	}
 }
 
-void FHardReferenceViewerSearchData::SearchMemberVariables(TMap<FName, FHRVTreeViewItemPtr>& OutPackageMap,	const FAssetRegistryModule& AssetRegistryModule, UBlueprint* Blueprint)
+void FHardReferenceFinderSearchData::SearchMemberVariables(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap,	const FAssetRegistryModule& AssetRegistryModule, UBlueprint* Blueprint)
 {
 	TSet<FName> CurrentVars;
 	FBlueprintEditorUtils::GetClassVariableList(Blueprint, CurrentVars);
@@ -293,7 +293,7 @@ void FHardReferenceViewerSearchData::SearchMemberVariables(TMap<FName, FHRVTreeV
 							if(Object)
 							{
 								const UPackage* Package = Object->GetPackage();
-								if( const FHRVTreeViewItemPtr Result = CheckAddPackageResult(OutPackageMap, AssetRegistryModule, Package) )
+								if( const FHRFTreeViewItemPtr Result = CheckAddPackageResult(OutPackageMap, AssetRegistryModule, Package) )
 								{
 									if( UEdGraphSchema_K2 const* Schema = GetDefault<UEdGraphSchema_K2>() )
 									{
@@ -311,20 +311,20 @@ void FHardReferenceViewerSearchData::SearchMemberVariables(TMap<FName, FHRVTreeV
 	}
 }
 
-FHRVTreeViewItemPtr FHardReferenceViewerSearchData::CheckAddPackageResult(TMap<FName, FHRVTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const UPackage* Package) const
+FHRFTreeViewItemPtr FHardReferenceFinderSearchData::CheckAddPackageResult(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const UPackage* Package) const
 {
 	if( Package )
 	{
 		const FName PackageName = Package->GetFName();
-		if(const FHRVTreeViewItemPtr* FoundHeader = OutPackageMap.Find(PackageName))
+		if(const FHRFTreeViewItemPtr* FoundHeader = OutPackageMap.Find(PackageName))
 		{
-			const FHRVTreeViewItemPtr Header = *FoundHeader;
+			const FHRFTreeViewItemPtr Header = *FoundHeader;
 								
 			FAssetPackageData AssetPackageData;
 			const bool bExists = TryGetAssetPackageData(PackageName, AssetPackageData);
 			if(ensure(bExists))
 			{
-				FHRVTreeViewItemPtr Link = MakeShared<FHRVTreeViewItem>();
+				FHRFTreeViewItemPtr Link = MakeShared<FHRFTreeViewItem>();
 				Header->Children.Add(Link);
 				return Link; 
 			}
@@ -334,7 +334,7 @@ FHRVTreeViewItemPtr FHardReferenceViewerSearchData::CheckAddPackageResult(TMap<F
 	return  nullptr;
 }
 
-void FHardReferenceViewerSearchData::GetAssetForPackages(const TArray<FName>& PackageNames, TMap<FName, FAssetData>& OutPackageToAssetData) const
+void FHardReferenceFinderSearchData::GetAssetForPackages(const TArray<FName>& PackageNames, TMap<FName, FAssetData>& OutPackageToAssetData) const
 {
 #if ENGINE_MAJOR_VERSION < 5
 		FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
@@ -356,7 +356,7 @@ void FHardReferenceViewerSearchData::GetAssetForPackages(const TArray<FName>& Pa
 #endif
 }
 
-bool FHardReferenceViewerSearchData::TryGetAssetPackageData(FName PathName, FAssetPackageData& OutPackageData) const
+bool FHardReferenceFinderSearchData::TryGetAssetPackageData(FName PathName, FAssetPackageData& OutPackageData) const
 {
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 
@@ -376,7 +376,7 @@ bool FHardReferenceViewerSearchData::TryGetAssetPackageData(FName PathName, FAss
 	return false;
 }
 
-FString FHardReferenceViewerSearchData::GetAssetTypeName(const FAssetData& AssetData) const
+FString FHardReferenceFinderSearchData::GetAssetTypeName(const FAssetData& AssetData) const
 {
 #if ENGINE_MAJOR_VERSION < 5
 	return AssetData.AssetClass.ToString();
@@ -385,7 +385,7 @@ FString FHardReferenceViewerSearchData::GetAssetTypeName(const FAssetData& Asset
 #endif
 }
 
-FAssetData FHardReferenceViewerSearchData::GetAssetDataForObject(const UObject* Object) const
+FAssetData FHardReferenceFinderSearchData::GetAssetDataForObject(const UObject* Object) const
 {
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	FString ObjectPath = Object->GetPathName();

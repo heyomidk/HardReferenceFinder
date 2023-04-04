@@ -8,7 +8,7 @@
 class FWorkflowAllowedTabSet;
 class FBlueprintEditor;
 
-class FHardReferenceViewerModule : public IModuleInterface
+class FHardReferenceFinderModule : public IModuleInterface
 {
 public:
 	/** IModuleInterface implementation */

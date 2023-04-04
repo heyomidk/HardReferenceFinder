@@ -1,6 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
-#include "HardReferenceViewerStyle.h"
+#include "HardReferenceFinderStyle.h"
 #include "Styling/SlateStyleRegistry.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Slate/SlateGameResources.h"
@@ -8,9 +8,9 @@
 
 #define RootToContentDir Style->RootToContentDir
 
-TSharedPtr<FSlateStyleSet> FHardReferenceViewerStyle::StyleInstance = nullptr;
+TSharedPtr<FSlateStyleSet> FHardReferenceFinderStyle::StyleInstance = nullptr;
 
-void FHardReferenceViewerStyle::Initialize()
+void FHardReferenceFinderStyle::Initialize()
 {
 	if (!StyleInstance.IsValid())
 	{
@@ -19,32 +19,32 @@ void FHardReferenceViewerStyle::Initialize()
 	}
 }
 
-void FHardReferenceViewerStyle::Shutdown()
+void FHardReferenceFinderStyle::Shutdown()
 {
 	FSlateStyleRegistry::UnRegisterSlateStyle(*StyleInstance);
 	ensure(StyleInstance.IsUnique());
 	StyleInstance.Reset();
 }
 
-FName FHardReferenceViewerStyle::GetStyleSetName()
+FName FHardReferenceFinderStyle::GetStyleSetName()
 {
-	static FName StyleSetName(TEXT("HardReferenceViewerStyle"));
+	static FName StyleSetName(TEXT("HardReferenceFinderStyle"));
 	return StyleSetName;
 }
 
 const FVector2D Icon16x16(16.0f, 16.0f);
 const FVector2D Icon20x20(20.0f, 20.0f);
 
-TSharedRef< FSlateStyleSet > FHardReferenceViewerStyle::Create()
+TSharedRef< FSlateStyleSet > FHardReferenceFinderStyle::Create()
 {
-	TSharedRef< FSlateStyleSet > Style = MakeShareable(new FSlateStyleSet("HardReferenceViewerStyle"));
-	Style->SetContentRoot(IPluginManager::Get().FindPlugin("HardReferenceViewer")->GetBaseDir() / TEXT("Resources"));
+	TSharedRef< FSlateStyleSet > Style = MakeShareable(new FSlateStyleSet("HardReferenceFinderStyle"));
+	Style->SetContentRoot(IPluginManager::Get().FindPlugin("HardReferenceFinder")->GetBaseDir() / TEXT("Resources"));
 
 
 	return Style;
 }
 
-void FHardReferenceViewerStyle::ReloadTextures()
+void FHardReferenceFinderStyle::ReloadTextures()
 {
 	if (FSlateApplication::IsInitialized())
 	{
@@ -52,7 +52,7 @@ void FHardReferenceViewerStyle::ReloadTextures()
 	}
 }
 
-const ISlateStyle& FHardReferenceViewerStyle::Get()
+const ISlateStyle& FHardReferenceFinderStyle::Get()
 {
 	return *StyleInstance;
 }

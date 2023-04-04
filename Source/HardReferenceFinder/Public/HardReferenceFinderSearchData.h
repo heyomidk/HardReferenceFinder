@@ -6,7 +6,7 @@
 
 class FBlueprintEditor;
 
-class FHRVTreeViewItem : public TSharedFromThis<FHRVTreeViewItem>
+class FHRFTreeViewItem : public TSharedFromThis<FHRFTreeViewItem>
 {
 public:
 
@@ -18,9 +18,9 @@ public:
 	FGuid NodeGuid;
 	FSlateIcon SlateIcon;
 	FLinearColor IconColor = FLinearColor::White;
-	TArray<TSharedPtr<FHRVTreeViewItem>> Children;
+	TArray<TSharedPtr<FHRFTreeViewItem>> Children;
 };
-typedef TSharedPtr<FHRVTreeViewItem> FHRVTreeViewItemPtr;
+typedef TSharedPtr<FHRFTreeViewItem> FHRFTreeViewItemPtr;
 
 #if ENGINE_MAJOR_VERSION < 5
 typedef const TArray<UEdGraph*> FEdGraphArray;
@@ -28,10 +28,10 @@ typedef const TArray<UEdGraph*> FEdGraphArray;
 typedef const TArray<TObjectPtr<UEdGraph>> FEdGraphArray;
 #endif
 
-class FHardReferenceViewerSearchData
+class FHardReferenceFinderSearchData
 {
 public:
-	TArray<FHRVTreeViewItemPtr> GatherSearchData(TWeakPtr<FBlueprintEditor> BlueprintEditor);
+	TArray<FHRFTreeViewItemPtr> GatherSearchData(TWeakPtr<FBlueprintEditor> BlueprintEditor);
 
 	int GetSizeOnDisk() const { return SizeOnDisk; }
 	int GetNumPackagesReferenced() const { return TreeView.Num(); }
@@ -40,10 +40,10 @@ private:
 	void Reset();
 	UObject* GetObjectContext(TWeakPtr<FBlueprintEditor> BlueprintEditor) const;
 	void GetPackageDependencies(TArray<FName>& OutPackageDependencies, int& OutSizeOnDisk, FAssetRegistryModule& AssetRegistryModule, TWeakPtr<FBlueprintEditor> BlueprintEditor) const;
-	void SearchGraphNodes(TMap<FName, FHRVTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const FEdGraphArray& EdGraphList) const;
-	void SearchNodePins(TMap<FName, FHRVTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const UEdGraphNode* Node) const;
-	void SearchMemberVariables(TMap<FName, FHRVTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, UBlueprint* Blueprint);
-	FHRVTreeViewItemPtr CheckAddPackageResult(TMap<FName, FHRVTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const UPackage* Package) const;
+	void SearchGraphNodes(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const FEdGraphArray& EdGraphList) const;
+	void SearchNodePins(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const UEdGraphNode* Node) const;
+	void SearchMemberVariables(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, UBlueprint* Blueprint);
+	FHRFTreeViewItemPtr CheckAddPackageResult(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const UPackage* Package) const;
 
 	void GetAssetForPackages(const TArray<FName>& PackageNames, TMap<FName, FAssetData>& OutPackageToAssetData) const;
 	bool TryGetAssetPackageData(FName PathName, FAssetPackageData& OutPackageData) const;
@@ -51,6 +51,6 @@ private:
 	FAssetData GetAssetDataForObject(const UObject* Object) const;
 	
 	int SizeOnDisk = 0;
-	TArray<FHRVTreeViewItemPtr> TreeView;
+	TArray<FHRFTreeViewItemPtr> TreeView;
 };
 
