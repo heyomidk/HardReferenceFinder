@@ -12,6 +12,32 @@
 
 #define LOCTEXT_NAMESPACE "FHardReferenceFinderModule"
 
+namespace HardReferenceInternals
+{
+	static FText MakeBestSizeString(const SIZE_T SizeInBytes)
+	{
+		FText SizeText;
+
+		if (SizeInBytes < 1000)
+		{
+			// We ended up with bytes, so show a decimal number
+			SizeText = FText::AsMemory(SizeInBytes, EMemoryUnitStandard::SI);
+		}
+		else
+		{
+			// Show a fractional number with the best possible units
+			FNumberFormattingOptions NumberFormattingOptions;
+			NumberFormattingOptions.MaximumFractionalDigits = 1;
+			NumberFormattingOptions.MinimumFractionalDigits = 0;
+			NumberFormattingOptions.MinimumIntegralDigits = 1;
+
+			SizeText = FText::AsMemory(SizeInBytes, &NumberFormattingOptions, nullptr, EMemoryUnitStandard::SI);
+		}
+
+		return SizeText;
+	}	
+}
+
 void SHardReferenceFinderWindow::Construct(const FArguments& InArgs, TSharedPtr<FBlueprintEditor> InBlueprintGraph)
 {
 	BlueprintGraph = InBlueprintGraph;
@@ -143,7 +169,8 @@ TSharedRef<ITableRow> SHardReferenceFinderWindow::OnGenerateRow(FHRFTreeViewItem
 {
 	if(Item->bIsHeader)
 	{
-		const FText CategoryHeaderText = FText::Format(LOCTEXT("CategoryHeader", "{1} ({0}MB)"), Item->SizeOnDisk/1000.f, Item->Name);
+		const FText SizeText = HardReferenceInternals::MakeBestSizeString(Item->SizeOnDisk);
+		const FText CategoryHeaderText = FText::Format(LOCTEXT("CategoryHeader", "{1} ({0})"), SizeText, Item->Name);
 
 		return SNew(STableRow<TSharedPtr<FName>>, TableViewBase)
 			.Style( GetStyle_HeaderRow() )
