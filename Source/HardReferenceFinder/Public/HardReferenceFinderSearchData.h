@@ -33,24 +33,24 @@ class FHardReferenceFinderSearchData
 public:
 	TArray<FHRFTreeViewItemPtr> GatherSearchData(TWeakPtr<FBlueprintEditor> BlueprintEditor);
 
-	int GetSizeOnDisk() const { return SizeOnDisk; }
 	int GetNumPackagesReferenced() const { return TreeView.Num(); }
 
 private:	
 	void Reset();
 	UObject* GetObjectContext(TWeakPtr<FBlueprintEditor> BlueprintEditor) const;
-	void GetPackageDependencies(TArray<FName>& OutPackageDependencies, int& OutSizeOnDisk, FAssetRegistryModule& AssetRegistryModule, TWeakPtr<FBlueprintEditor> BlueprintEditor) const;
+	void GetBlueprintDependencies(TArray<FName>& OutPackageDependencies, FAssetRegistryModule& AssetRegistryModule, TWeakPtr<FBlueprintEditor> BlueprintEditor) const;
 	void SearchGraphNodes(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const FEdGraphArray& EdGraphList) const;
 	void SearchNodePins(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const UEdGraphNode* Node) const;
 	void SearchMemberVariables(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, UBlueprint* Blueprint);
 	FHRFTreeViewItemPtr CheckAddPackageResult(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const UPackage* Package) const;
-
+	
 	void GetAssetForPackages(const TArray<FName>& PackageNames, TMap<FName, FAssetData>& OutPackageToAssetData) const;
-	bool TryGetAssetPackageData(FName PathName, FAssetPackageData& OutPackageData) const;
+	bool TryGetAssetPackageData(FName PathName, FAssetPackageData& OutPackageData, const FAssetRegistryModule& AssetRegistryModule) const;
 	FString GetAssetTypeName(const FAssetData& AssetData) const;
 	FAssetData GetAssetDataForObject(const UObject* Object) const;
+	int64 GatherAssetSizeByName(const FName& AssetName, FAssetRegistryModule& AssetRegistryModule) const;
+	int64 GatherAssetSizeRecursive(const FName& OutFrontier, TSet<FName>& OutVisited, FAssetRegistryModule& AssetRegistryModule) const;
 	
-	int SizeOnDisk = 0;
 	TArray<FHRFTreeViewItemPtr> TreeView;
 };
 
