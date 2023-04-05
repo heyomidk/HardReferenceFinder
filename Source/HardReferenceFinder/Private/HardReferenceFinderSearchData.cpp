@@ -23,13 +23,13 @@ TArray<FHRFTreeViewItemPtr> FHardReferenceFinderSearchData::GatherSearchData(TWe
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	
 	// Get this blueprints package dependencies from the blueprint editor 
-	TArray<FName> PackageDependencies;
-	GetPackageDependencies(PackageDependencies, SizeOnDisk, AssetRegistryModule, BlueprintEditor);
-
+	TArray<FName> BlueprintDependencies;
+	GetBlueprintDependencies(BlueprintDependencies, AssetRegistryModule, BlueprintEditor);
+	
 	// Populate display information from package dependencies
 	{
 		TMap<FName, FAssetData> DependencyToAssetDataMap;
-		GetAssetForPackages(PackageDependencies, DependencyToAssetDataMap);
+		GetAssetForPackages(BlueprintDependencies, DependencyToAssetDataMap);
 
 		for (auto MapIt = DependencyToAssetDataMap.CreateConstIterator(); MapIt; ++MapIt)
 		{
@@ -39,7 +39,7 @@ TArray<FHRFTreeViewItemPtr> FHardReferenceFinderSearchData::GatherSearchData(TWe
 			FString FileName = FPaths::GetCleanFilename(PathName.ToString());
 		
 			FAssetPackageData AssetPackageData;
-			TryGetAssetPackageData(PathName, AssetPackageData);
+			TryGetAssetPackageData(PathName, AssetPackageData, AssetRegistryModule);
 
 			if( FHRFTreeViewItemPtr Header = MakeShared<FHRFTreeViewItem>() )
 			{
@@ -47,7 +47,7 @@ TArray<FHRFTreeViewItemPtr> FHardReferenceFinderSearchData::GatherSearchData(TWe
 				Header->PackageId = PathName;
 				Header->Tooltip = FText::FromName(PathName);
 				Header->Name = FText::FromString(FileName);
-				Header->SizeOnDisk = AssetPackageData.DiskSize;
+				Header->SizeOnDisk = GatherAssetSizeByName(PathName, AssetRegistryModule);
 				Header->SlateIcon = FSlateIcon("EditorStyle", FName( *("ClassIcon." + AssetTypeName))); 
 
 				FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>(TEXT("AssetTools"));	
@@ -100,7 +100,6 @@ TArray<FHRFTreeViewItemPtr> FHardReferenceFinderSearchData::GatherSearchData(TWe
 
 void FHardReferenceFinderSearchData::Reset()
 {
-	SizeOnDisk = 0;
 	TreeView.Reset();
 }
 
@@ -131,7 +130,7 @@ UObject* FHardReferenceFinderSearchData::GetObjectContext(TWeakPtr<FBlueprintEdi
 #endif
 }
 
-void FHardReferenceFinderSearchData::GetPackageDependencies(TArray<FName>& OutPackageDependencies, int& OutSizeOnDisk, FAssetRegistryModule& AssetRegistryModule, TWeakPtr<FBlueprintEditor> BlueprintEditor) const
+void FHardReferenceFinderSearchData::GetBlueprintDependencies(TArray<FName>& OutPackageDependencies, FAssetRegistryModule& AssetRegistryModule, TWeakPtr<FBlueprintEditor> BlueprintEditor) const
 {
 	UObject* Object = GetObjectContext(BlueprintEditor);
 	if(Object == nullptr)
@@ -143,10 +142,6 @@ void FHardReferenceFinderSearchData::GetPackageDependencies(TArray<FName>& OutPa
 
 	UE::AssetRegistry::FDependencyQuery Flags(UE::AssetRegistry::EDependencyQuery::Hard);
 	AssetRegistryModule.GetDependencies(ExistingAsset.PackageName, OutPackageDependencies, UE::AssetRegistry::EDependencyCategory::Package, Flags);
-	
-	FAssetPackageData AssetPackageData;
-	TryGetAssetPackageData(ExistingAsset.PackageName, AssetPackageData);
-	OutSizeOnDisk = AssetPackageData.DiskSize;
 }
 
 void FHardReferenceFinderSearchData::SearchGraphNodes(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const FEdGraphArray& EdGraphList) const
@@ -321,7 +316,7 @@ FHRFTreeViewItemPtr FHardReferenceFinderSearchData::CheckAddPackageResult(TMap<F
 			const FHRFTreeViewItemPtr Header = *FoundHeader;
 								
 			FAssetPackageData AssetPackageData;
-			const bool bExists = TryGetAssetPackageData(PackageName, AssetPackageData);
+			const bool bExists = TryGetAssetPackageData(PackageName, AssetPackageData, AssetRegistryModule);
 			if(ensure(bExists))
 			{
 				FHRFTreeViewItemPtr Link = MakeShared<FHRFTreeViewItem>();
@@ -356,10 +351,8 @@ void FHardReferenceFinderSearchData::GetAssetForPackages(const TArray<FName>& Pa
 #endif
 }
 
-bool FHardReferenceFinderSearchData::TryGetAssetPackageData(FName PathName, FAssetPackageData& OutPackageData) const
+bool FHardReferenceFinderSearchData::TryGetAssetPackageData(FName PathName, FAssetPackageData& OutPackageData, const FAssetRegistryModule& AssetRegistryModule) const
 {
-	FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-
 #if ENGINE_MAJOR_VERSION < 5
 	if(const FAssetPackageData* pAssetPackageData = AssetRegistryModule.Get().GetAssetPackageData(PathName))
 	{
@@ -395,6 +388,42 @@ FAssetData FHardReferenceFinderSearchData::GetAssetDataForObject(const UObject* 
 #else
 	return AssetRegistryModule.Get().GetAssetByObjectPath(FSoftObjectPath(ObjectPath));
 #endif
+}
+
+int64 FHardReferenceFinderSearchData::GatherAssetSizeByName(const FName& AssetName, FAssetRegistryModule& AssetRegistryModule) const
+{
+	TSet<FName> Visited;
+	const int64 Size = GatherAssetSizeRecursive(AssetName, Visited, AssetRegistryModule);
+	return Size;
+}
+
+int64 FHardReferenceFinderSearchData::GatherAssetSizeRecursive(const FName& AssetName, TSet<FName>& OutVisited, FAssetRegistryModule& AssetRegistryModule) const
+{
+	const bool bAlreadyVisited = OutVisited.Contains(AssetName);
+	if(bAlreadyVisited)
+	{
+		return 0;
+	}
+	OutVisited.Add(AssetName);
+
+	int64 AssetSize = 0;
+	FAssetPackageData AssetPackageData;
+	if( TryGetAssetPackageData(AssetName, AssetPackageData, AssetRegistryModule) )
+	{
+		AssetSize += AssetPackageData.DiskSize;
+	}
+	
+	TArray<FName> Dependencies;
+	const UE::AssetRegistry::FDependencyQuery Flags(UE::AssetRegistry::EDependencyQuery::Hard);
+	AssetRegistryModule.GetDependencies(AssetName, Dependencies, UE::AssetRegistry::EDependencyCategory::Package, Flags);
+	int64 DependencySize = 0;	
+	for(const FName& DependencyName : Dependencies)
+	{
+		DependencySize += GatherAssetSizeRecursive(DependencyName, OutVisited, AssetRegistryModule);  
+	}
+
+	const int64 TotalSize = AssetSize + DependencySize; 
+	return TotalSize;
 }
 
 #undef LOCTEXT_NAMESPACE
