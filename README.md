@@ -4,7 +4,7 @@ An open-source editor plugin for Unreal Engine 5 that identifies hard references
 
 The plugin allows you to summon a window which links to the various function calls, variables, graph pins, etc that are causing hard package references to other assets. Results are grouped by package and sorted by size, from largest to smallest.
 
-Compatible with Unreal Engine 4.27 & 5.1.
+Built on UE 5.1 and backwards compatible with UE 4.27.
 
 ![Image showing plugin usage in an example blueprint](Documentation/main-image.png)
 
