@@ -24,6 +24,6 @@ Open any blueprint with a graph or function view, then select *Window -> Hard Re
 
 # Known Issues
  - After modifying a blueprint, you have to compile/save it before 'Refresh' will display the updated list of references.
- - Does not find component references
- - Does not find local variables in function graphs
- - Needs testing! Bug reports/pull requests appreciated.
+ - Doesn't identify sources in actor components 
+ - Doesn't identify sources from local variables in function graphs
+ - Needs more testing! This is an initial version, bug reports/pull requests appreciated.
