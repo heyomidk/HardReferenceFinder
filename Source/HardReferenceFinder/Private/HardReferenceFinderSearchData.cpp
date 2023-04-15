@@ -5,6 +5,7 @@
 #include "EdGraph/EdGraph.h"
 #include "K2Node_CallFunction.h"
 #include "K2Node_DynamicCast.h"
+#include "K2Node_FunctionEntry.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 
 #if ENGINE_MAJOR_VERSION < 5
@@ -73,7 +74,6 @@ TArray<FHRFTreeViewItemPtr> FHardReferenceFinderSearchData::GatherSearchData(TWe
 			SearchGraphNodes(DependentPackageMap, AssetRegistryModule, Blueprint->UbergraphPages);
 			SearchGraphNodes(DependentPackageMap, AssetRegistryModule, Blueprint->FunctionGraphs);
 			SearchMemberVariables(DependentPackageMap, AssetRegistryModule, Blueprint);
-			// @omidk todo: Search local function variables
 			// @omidk todo: Search components
 		}
 	}
@@ -150,7 +150,7 @@ void FHardReferenceFinderSearchData::SearchGraphNodes(TMap<FName, FHRFTreeViewIt
 	{
 		if(Graph)
 		{
-			for (const UEdGraphNode* Node : Graph->Nodes)
+			for (UEdGraphNode* Node : Graph->Nodes)
 			{
 				const UPackage* FunctionPackage = nullptr;
 				if(const UK2Node_CallFunction* CallFunctionNode = Cast<UK2Node_CallFunction>(Node))
@@ -174,6 +174,11 @@ void FHardReferenceFinderSearchData::SearchGraphNodes(TMap<FName, FHRFTreeViewIt
 
 				// Also search the pins of this node for any references to other packages, e.g. the 'Class' pin of a SpawnActor node.
 				SearchNodePins(OutPackageMap, AssetRegistryModule, Node);
+
+				if( UK2Node_FunctionEntry* FunctionEntryNode = Cast<UK2Node_FunctionEntry>(Node) )
+				{
+					SearchFunctionReferences(OutPackageMap, AssetRegistryModule, FunctionEntryNode);
+				}
 			}
 		}
 	}
@@ -214,7 +219,37 @@ void FHardReferenceFinderSearchData::SearchNodePins(TMap<FName, FHRFTreeViewItem
 	}
 }
 
-void FHardReferenceFinderSearchData::SearchMemberVariables(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap,	const FAssetRegistryModule& AssetRegistryModule, UBlueprint* Blueprint)
+void FHardReferenceFinderSearchData::SearchFunctionReferences(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, UK2Node_FunctionEntry* FunctionEntryNode) const
+{
+	if(FunctionEntryNode == nullptr)
+	{
+		return;
+	}
+
+	const TSharedPtr<FStructOnScope> FunctionVariableCache = FunctionEntryNode->GetFunctionVariableCache();
+	if( FunctionVariableCache.IsValid() )
+	{
+		if( const UStruct* FunctionStruct = FunctionVariableCache->GetStruct() )
+		{
+			for( const UObject* ReferencedObject : FunctionStruct->ScriptAndPropertyObjectReferences)
+			{
+				if(ReferencedObject)
+				{
+					const UPackage* Package = ReferencedObject->GetPackage();
+					if( const FHRFTreeViewItemPtr Result = CheckAddPackageResult(OutPackageMap, AssetRegistryModule, Package) )
+					{
+						Result->Name = FText::Format(LOCTEXT("FunctionReference","{0}"), FunctionEntryNode->GetNodeTitle(ENodeTitleType::ListView));
+						Result->Tooltip = LOCTEXT("FunctionReferenceTooltip","A function variable or argument");
+						Result->NodeGuid = FunctionEntryNode->NodeGuid;
+						Result->SlateIcon = FunctionEntryNode->GetIconAndTint(Result->IconColor);
+					}
+				}
+			}
+		}
+	}
+}
+
+void FHardReferenceFinderSearchData::SearchMemberVariables(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap,	const FAssetRegistryModule& AssetRegistryModule, UBlueprint* Blueprint) const
 {
 	TSet<FName> CurrentVars;
 	FBlueprintEditorUtils::GetClassVariableList(Blueprint, CurrentVars);
