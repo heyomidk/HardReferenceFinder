@@ -5,6 +5,7 @@
 #include "HardReferenceFinderSearchData.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
+#include "Widgets/Input/SButton.h"
 
 #if ENGINE_MAJOR_VERSION < 5
 #include "EditorStyleSet.h"
