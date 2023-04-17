@@ -72,7 +72,7 @@ TArray<FHRFTreeViewItemPtr> FHardReferenceFinderSearchData::GatherSearchData(TWe
 		if( UBlueprint* Blueprint = BlueprintEditor.Pin()->GetBlueprintObj() )
 		{
 			SearchGraphNodes(DependentPackageMap, AssetRegistryModule, Blueprint->UbergraphPages);
-			SearchGraphNodes(DependentPackageMap, AssetRegistryModule, Blueprint->FunctionGraphs);
+			SearchFunctionReferences(DependentPackageMap, AssetRegistryModule, Blueprint);
 			SearchMemberVariables(DependentPackageMap, AssetRegistryModule, Blueprint);
 			// @omidk todo: Search components
 		}
@@ -85,7 +85,8 @@ TArray<FHRFTreeViewItemPtr> FHardReferenceFinderSearchData::GatherSearchData(TWe
 		{
 			FHRFTreeViewItemPtr ChildItem = MakeShared<FHRFTreeViewItem>();
 			HeaderItem->Children.Add(ChildItem);
-			ChildItem->Name = LOCTEXT("UnknownSource", "Unknown source");
+			ChildItem->Name = LOCTEXT("UnknownSource", "Unidentified source");
+			ChildItem->Tooltip = LOCTEXT("UnknownSourceTooltip", "This package is being referenced by this asset but the plugin is unable to identify its source.");
 		}
 	}
 	
@@ -174,11 +175,6 @@ void FHardReferenceFinderSearchData::SearchGraphNodes(TMap<FName, FHRFTreeViewIt
 
 				// Also search the pins of this node for any references to other packages, e.g. the 'Class' pin of a SpawnActor node.
 				SearchNodePins(OutPackageMap, AssetRegistryModule, Node);
-
-				if( UK2Node_FunctionEntry* FunctionEntryNode = Cast<UK2Node_FunctionEntry>(Node) )
-				{
-					SearchFunctionReferences(OutPackageMap, AssetRegistryModule, FunctionEntryNode);
-				}
 			}
 		}
 	}
@@ -219,34 +215,93 @@ void FHardReferenceFinderSearchData::SearchNodePins(TMap<FName, FHRFTreeViewItem
 	}
 }
 
-void FHardReferenceFinderSearchData::SearchFunctionReferences(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, UK2Node_FunctionEntry* FunctionEntryNode) const
+void FHardReferenceFinderSearchData::SearchFunctionReferences(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const UBlueprint* Blueprint) const
 {
-	if(FunctionEntryNode == nullptr)
-	{
-		return;
-	}
+	// @heyomidk This method is still imperfect as there are a number of ways references can be formed from functions
+	//		1. From graph nodes inside the function (Cast, etc)
+	//		2. From Local Variables inside the function
+	//			a. Due to the variables type (ex: class is Blueprint)
+	//			b. Due to the default value (ie Subclass of UObject but points to a Blueprint)
+	//		3. From arguments to a function
+	//			a. Due to the type of an input argument
+	//			b. Due to the type of an output argument
+	//			c. Due to the default value of an output argument
+	//
+	// Note that the UFunction* provided by a TFieldRange iterator accounts for reference types 2a/2b, while the cached
+	// UFunction* in an EdGraphNode finds 2a but not 2b
+	//
+	// Note that neither method identifies all type 3 references so this approach may need to be amended/revised
 
-	const TSharedPtr<FStructOnScope> FunctionVariableCache = FunctionEntryNode->GetFunctionVariableCache();
-	if( FunctionVariableCache.IsValid() )
+	// This gathers type 1/3c references and creates links to the associated graph nodes.
+	SearchGraphNodes(OutPackageMap, AssetRegistryModule, Blueprint->FunctionGraphs);
+
+	// This gathers type 2 references and links them to the function entry node
+	for( UFunction* Function : TFieldRange<UFunction>(Blueprint->GeneratedClass, EFieldIteratorFlags::ExcludeSuper) )
 	{
-		if( const UStruct* FunctionStruct = FunctionVariableCache->GetStruct() )
+		const UK2Node_FunctionEntry* GraphEntryNode = FindGraphNodeForFunction(Blueprint, Function);
+		if(GraphEntryNode)
 		{
-			for( const UObject* ReferencedObject : FunctionStruct->ScriptAndPropertyObjectReferences)
+			for( const UObject* ReferencedObject : Function->ScriptAndPropertyObjectReferences)
 			{
-				if(ReferencedObject)
+				const UPackage* Package = ReferencedObject->GetPackage();
+				if( const FHRFTreeViewItemPtr Result = CheckAddPackageResult(OutPackageMap, AssetRegistryModule, Package) )
 				{
-					const UPackage* Package = ReferencedObject->GetPackage();
-					if( const FHRFTreeViewItemPtr Result = CheckAddPackageResult(OutPackageMap, AssetRegistryModule, Package) )
-					{
-						Result->Name = FText::Format(LOCTEXT("FunctionReference","{0}"), FunctionEntryNode->GetNodeTitle(ENodeTitleType::ListView));
-						Result->Tooltip = LOCTEXT("FunctionReferenceTooltip","A function variable or argument");
-						Result->NodeGuid = FunctionEntryNode->NodeGuid;
-						Result->SlateIcon = FunctionEntryNode->GetIconAndTint(Result->IconColor);
-					}
+					Result->Name = FText::Format(LOCTEXT("FunctionReference","{0}"), GraphEntryNode->GetNodeTitle(ENodeTitleType::ListView));
+					Result->Tooltip = LOCTEXT("FunctionReferenceTooltip","A function variable or argument");
+					Result->NodeGuid = GraphEntryNode->NodeGuid;
+					Result->SlateIcon = GraphEntryNode->GetIconAndTint(Result->IconColor);
 				}
 			}
 		}
 	}
+}
+
+UK2Node_FunctionEntry* FHardReferenceFinderSearchData::FindGraphNodeForFunction(const UBlueprint* Blueprint, UFunction* FunctionToFind) const
+{
+	if(Blueprint == nullptr)
+	{
+		return nullptr;
+	}
+	
+	if(FunctionToFind == nullptr)
+	{
+		return nullptr;
+	}
+
+	// search functions in the Graph
+	for(UEdGraph* Graph : Blueprint->FunctionGraphs)
+	{
+		// find the entry point for the function in the graph
+		UK2Node_FunctionEntry* GraphEntryNode = nullptr;
+		for(UEdGraphNode* Node : Graph->Nodes)
+		{
+			GraphEntryNode = Cast<UK2Node_FunctionEntry>(Node);
+			if(GraphEntryNode != nullptr)
+			{
+				break;
+			}
+		}
+					
+		if(GraphEntryNode)
+		{
+			// See if this matches the provided UFunction
+			const TSharedPtr<FStructOnScope> NodeFunctionVarCache = GraphEntryNode->GetFunctionVariableCache();
+			if( NodeFunctionVarCache.IsValid() )
+			{
+				if( const UFunction* NodeFunction = Cast<UFunction>(NodeFunctionVarCache->GetStruct()) )
+				{
+					const FName NodeFunctionName = NodeFunction->GetFName(); 
+					const FName TargetFunctionName = FunctionToFind->GetFName();
+					if(NodeFunctionName == TargetFunctionName)
+					{
+						return GraphEntryNode;
+					}							
+				}
+			}
+		}
+	}
+	
+	return nullptr;
 }
 
 void FHardReferenceFinderSearchData::SearchMemberVariables(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap,	const FAssetRegistryModule& AssetRegistryModule, UBlueprint* Blueprint) const
@@ -462,3 +517,4 @@ int64 FHardReferenceFinderSearchData::GatherAssetSizeRecursive(const FName& Asse
 }
 
 #undef LOCTEXT_NAMESPACE
+
