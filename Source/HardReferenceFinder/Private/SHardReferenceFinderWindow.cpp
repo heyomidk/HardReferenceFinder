@@ -175,6 +175,7 @@ TSharedRef<ITableRow> SHardReferenceFinderWindow::OnGenerateRow(FHRFTreeViewItem
 		return SNew(STableRow<TSharedPtr<FName>>, TableViewBase)
 			.Style( GetStyle_HeaderRow() )
 			.Padding(FMargin(2.f, 3.f, 2.f, 3.f))
+			.ToolTipText(Item->Tooltip)
 			[
 				SNew(SHorizontalBox)
 				+SHorizontalBox::Slot()
@@ -198,25 +199,26 @@ TSharedRef<ITableRow> SHardReferenceFinderWindow::OnGenerateRow(FHRFTreeViewItem
 	else
 	{
 		return SNew(STableRow<TSharedPtr<FName>>, TableViewBase)
-		[
-			SNew(SHorizontalBox)
-			+SHorizontalBox::Slot()
-			.VAlign(VAlign_Center)
-			.Padding(FMargin(0.f, 0.f, 8.f, 0.f))
-			.AutoWidth()
+			.ToolTipText(Item->Tooltip)
 			[
-				SNew(SImage)
-				.Image(Item->SlateIcon.GetOptionalIcon())
-				.ColorAndOpacity(Item->IconColor)
-			]
-			+SHorizontalBox::Slot()
-			.AutoWidth()
-			.VAlign(VAlign_Center)
-			.Padding(2.f)
-			[
-				SNew(STextBlock).Text(Item->Name)
-			]
-		];
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				.Padding(FMargin(0.f, 0.f, 8.f, 0.f))
+				.AutoWidth()
+				[
+					SNew(SImage)
+					.Image(Item->SlateIcon.GetOptionalIcon())
+					.ColorAndOpacity(Item->IconColor)
+				]
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.Padding(2.f)
+				[
+					SNew(STextBlock).Text(Item->Name)
+				]
+			];
 	}
 }
 

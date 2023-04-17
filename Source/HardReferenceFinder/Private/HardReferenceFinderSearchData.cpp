@@ -86,7 +86,7 @@ TArray<FHRFTreeViewItemPtr> FHardReferenceFinderSearchData::GatherSearchData(TWe
 			FHRFTreeViewItemPtr ChildItem = MakeShared<FHRFTreeViewItem>();
 			HeaderItem->Children.Add(ChildItem);
 			ChildItem->Name = LOCTEXT("UnknownSource", "Unidentified source");
-			ChildItem->Tooltip = LOCTEXT("UnknownSourceTooltip", "This package is being referenced by this asset but the plugin is unable to identify its source.");
+			ChildItem->Tooltip = LOCTEXT("UnknownSourceTooltip", "This package is being referenced but the plugin is unable to identify its source.");
 		}
 	}
 	
@@ -247,7 +247,6 @@ void FHardReferenceFinderSearchData::SearchFunctionReferences(TMap<FName, FHRFTr
 				if( const FHRFTreeViewItemPtr Result = CheckAddPackageResult(OutPackageMap, AssetRegistryModule, Package) )
 				{
 					Result->Name = FText::Format(LOCTEXT("FunctionReference","{0}"), GraphEntryNode->GetNodeTitle(ENodeTitleType::ListView));
-					Result->Tooltip = LOCTEXT("FunctionReferenceTooltip","A function variable or argument");
 					Result->NodeGuid = GraphEntryNode->NodeGuid;
 					Result->SlateIcon = GraphEntryNode->GetIconAndTint(Result->IconColor);
 				}
