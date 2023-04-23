@@ -3,9 +3,12 @@
 #include "CoreMinimal.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Templates/SharedPointer.h"
+#include "Textures/SlateIcon.h"
 
 class FBlueprintEditor;
 class UK2Node_FunctionEntry;
+class UEdGraph;
+class UEdGraphNode;
 
 class FHRFTreeViewItem : public TSharedFromThis<FHRFTreeViewItem>
 {
@@ -42,10 +45,11 @@ private:
 	void GetBlueprintDependencies(TArray<FName>& OutPackageDependencies, FAssetRegistryModule& AssetRegistryModule, TWeakPtr<FBlueprintEditor> BlueprintEditor) const;
 	void SearchGraphNodes(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const FEdGraphArray& EdGraphList) const;
 	void SearchNodePins(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const UEdGraphNode* Node) const;
-	void SearchMemberVariables(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, UBlueprint* Blueprint) const;
+	void SearchBlueprintProperties(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, UBlueprint* Blueprint) const;
 	void SearchFunctionReferences(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const UBlueprint* Blueprint) const;
 
 	UK2Node_FunctionEntry* FindGraphNodeForFunction(const UBlueprint* Blueprint, UFunction* FunctionToFind) const;
+	TArray<UPackage*> FindPackagesForProperty(FSlateIcon& OutResultIcon, TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, UBlueprint* Blueprint, const FProperty* TargetProperty) const;
 	FHRFTreeViewItemPtr CheckAddPackageResult(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const UPackage* Package) const;
 	
 	void GetAssetForPackages(const TArray<FName>& PackageNames, TMap<FName, FAssetData>& OutPackageToAssetData) const;
