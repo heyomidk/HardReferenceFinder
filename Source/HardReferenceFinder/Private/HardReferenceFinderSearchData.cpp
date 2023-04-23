@@ -74,7 +74,8 @@ TArray<FHRFTreeViewItemPtr> FHardReferenceFinderSearchData::GatherSearchData(TWe
 		{
 			SearchGraphNodes(DependentPackageMap, AssetRegistryModule, Blueprint->UbergraphPages);
 			SearchFunctionReferences(DependentPackageMap, AssetRegistryModule, Blueprint);
-			SearchBlueprintProperties(DependentPackageMap, AssetRegistryModule, Blueprint);		
+			SearchBlueprintClassProperties(DependentPackageMap, AssetRegistryModule, Blueprint);
+			SearchSimpleConstructionScript(DependentPackageMap, AssetRegistryModule, Blueprint);
 		}
 	}
 
@@ -255,6 +256,38 @@ void FHardReferenceFinderSearchData::SearchFunctionReferences(TMap<FName, FHRFTr
 	}
 }
 
+void FHardReferenceFinderSearchData::SearchSimpleConstructionScript(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, const UBlueprint* Blueprint) const
+{
+	const USimpleConstructionScript* SimpleConstructionScript = Blueprint->SimpleConstructionScript;
+	if(SimpleConstructionScript == nullptr)
+	{
+		return;
+	}
+	
+	const TArray<USCS_Node*>& RootNodes = SimpleConstructionScript->GetAllNodes();
+	for(const USCS_Node* SCSNode : RootNodes)
+	{
+		if(SCSNode == nullptr)
+		{
+			continue;
+		}
+
+		const FName VarName = SCSNode->GetVariableName();
+		
+		TSet<UPackage*> OutReferencedPackages;
+		FindPackagesInSCSNode(OutReferencedPackages, SCSNode);
+
+		for(const UPackage* Package : OutReferencedPackages)
+		{
+			if(const FHRFTreeViewItemPtr Result = CheckAddPackageResult(OutPackageMap, AssetRegistryModule, Package))
+			{
+				Result->SlateIcon = FSlateIconFinder::FindIconForClass(SCSNode->ComponentClass, TEXT("SCS.Component"));
+				Result->Name = FText::Format(LOCTEXT("ComponentReference", "{0}"), FText::FromName(VarName));
+			}
+		}
+	}
+}
+
 UK2Node_FunctionEntry* FHardReferenceFinderSearchData::FindGraphNodeForFunction(const UBlueprint* Blueprint, UFunction* FunctionToFind) const
 {
 	if(Blueprint == nullptr)
@@ -303,90 +336,107 @@ UK2Node_FunctionEntry* FHardReferenceFinderSearchData::FindGraphNodeForFunction(
 	return nullptr;
 }
 
-TArray<UPackage*> FHardReferenceFinderSearchData::FindPackagesForProperty(FSlateIcon& OutResultIcon, TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap, const FAssetRegistryModule& AssetRegistryModule, UBlueprint* Blueprint, const FProperty* TargetProperty) const
+void FHardReferenceFinderSearchData::FindPackagesInSCSNode(TSet<UPackage*>& OutReferencedPackages, const USCS_Node* SCSNode) const
+{
+	if(SCSNode==nullptr || SCSNode->ComponentClass == nullptr)
+	{
+		return;
+	}
+
+	if( UPackage* NodePackage = SCSNode->ComponentClass->GetPackage() )
+	{
+		if(NodePackage)
+		{
+			OutReferencedPackages.Add(NodePackage);
+		}
+	}
+	
+	for( const FProperty* Property : TFieldRange<FProperty>(SCSNode->ComponentClass, EFieldIteratorFlags::IncludeSuper))
+	{
+		FSlateIcon VariableTypeIcon;
+		TArray<UPackage*> ReferencedPackages = FindPackagesForProperty(VariableTypeIcon, SCSNode->ComponentTemplate, Property );
+		for(UPackage* Package : ReferencedPackages)
+		{
+			OutReferencedPackages.Add(Package);
+		}
+	}
+}
+
+TArray<UPackage*> FHardReferenceFinderSearchData::FindPackagesForProperty(FSlateIcon& OutResultIcon, const UObject* ContainerPtr, const FProperty* TargetProperty) const
 {
 	TArray<UPackage*> FoundPackages;
 
-	if(TargetProperty == nullptr || Blueprint == nullptr)
+	if(TargetProperty == nullptr)
 	{
 		return FoundPackages;
 	}
 	
-	const UClass* BlueprintClass = Blueprint->GeneratedClass;
-	if(BlueprintClass == nullptr)
+	if(ContainerPtr != nullptr)
 	{
-		return FoundPackages;
-	}
-	
-	UObject* GeneratedCDO = BlueprintClass->GetDefaultObject();
-	if(GeneratedCDO == nullptr)
-	{
-		return FoundPackages;
-	}
+		TArray<const FStructProperty*> EncounteredStructProps;
+		const EPropertyObjectReferenceType ReferenceType = EPropertyObjectReferenceType::Strong;
+		const bool bHasStrongReferences = TargetProperty->ContainsObjectReference(EncounteredStructProps, ReferenceType);
+		if(bHasStrongReferences)
+		{
+			const void* TargetPropertyAddress = TargetProperty->ContainerPtrToValuePtr<void>(ContainerPtr);
 
-	TArray<const FStructProperty*> EncounteredStructProps;
-	const EPropertyObjectReferenceType ReferenceType = EPropertyObjectReferenceType::Strong;
-	const bool bHasStrongReferences = TargetProperty->ContainsObjectReference(EncounteredStructProps, ReferenceType);
-	if(bHasStrongReferences)
-	{
-		void* TargetPropertyAddress = TargetProperty->ContainerPtrToValuePtr<void>(GeneratedCDO);
+			struct PropertyAndAddressTuple
+			{
+				const FProperty* Property = nullptr;
+				const void* ValueAddress = nullptr;
+			};
+			TArray<PropertyAndAddressTuple> PropertiesToExamine;
 
-		struct PropertyAndAddressTuple
-		{
-			const FProperty* Property = nullptr;
-			void* ValueAddress = nullptr;
-		};
-		TArray<PropertyAndAddressTuple> PropertiesToExamine;
-
-		if(const FArrayProperty* ArrayProperty = CastField<FArrayProperty>(TargetProperty))
-		{
-			OutResultIcon = FSlateIcon("EditorStyle", "Kismet.VariableList.ArrayTypeIcon");
-			FScriptArrayHelper ArrayHelper(ArrayProperty, TargetPropertyAddress);
-			for(int i=0; i<ArrayHelper.Num(); ++i)
+			if(const FArrayProperty* ArrayProperty = CastField<FArrayProperty>(TargetProperty))
 			{
-				PropertiesToExamine.Add({ArrayProperty->Inner, ArrayHelper.GetRawPtr(i)});
-			}
-		}
-		else if(const FSetProperty* SetProperty = CastField<FSetProperty>(TargetProperty))
-		{
-			OutResultIcon = FSlateIcon("EditorStyle", "Kismet.VariableList.SetTypeIcon");
-			FScriptSetHelper SetHelper(SetProperty, TargetPropertyAddress);
-			for(int i=0; i<SetHelper.Num(); ++i)
-			{
-				PropertiesToExamine.Add({SetHelper.GetElementProperty(), SetHelper.GetElementPtr(i)});
-			}
-		}
-		else if(const FMapProperty* MapProperty = CastField<FMapProperty>(TargetProperty))
-		{
-			OutResultIcon = FSlateIcon("EditorStyle", "Kismet.VariableList.MapValueTypeIcon");
-			FScriptMapHelper MapHelper(MapProperty, TargetPropertyAddress);
-			for(int i=0; i<MapHelper.Num(); ++i)
-			{
-				PropertiesToExamine.Add({MapHelper.GetKeyProperty(), MapHelper.GetKeyPtr(i)});
-				PropertiesToExamine.Add({MapHelper.GetValueProperty(), MapHelper.GetValuePtr(i)});
-			}
-		}
-		else
-		{
-			OutResultIcon = FSlateIcon("EditorStyle", "Kismet.VariableList.TypeIcon");
-			PropertiesToExamine.Add({TargetProperty, TargetPropertyAddress});
-		}
-
-		for (const PropertyAndAddressTuple& Tuple : PropertiesToExamine)
-		{
-			if( const FObjectPropertyBase* ObjectProperty = CastField<FObjectPropertyBase>(Tuple.Property) )
-			{
-				if(const UObject* Object = ObjectProperty->GetObjectPropertyValue(Tuple.ValueAddress))
+				OutResultIcon = FSlateIcon("EditorStyle", "Kismet.VariableList.ArrayTypeIcon");
+				FScriptArrayHelper ArrayHelper(ArrayProperty, TargetPropertyAddress);
+				for(int i=0; i<ArrayHelper.Num(); ++i)
 				{
-					if(UPackage* Package = Object->GetPackage())
+					PropertiesToExamine.Add({ArrayProperty->Inner, ArrayHelper.GetRawPtr(i)});
+				}
+			}
+			else if(const FSetProperty* SetProperty = CastField<FSetProperty>(TargetProperty))
+			{
+				OutResultIcon = FSlateIcon("EditorStyle", "Kismet.VariableList.SetTypeIcon");
+				FScriptSetHelper SetHelper(SetProperty, TargetPropertyAddress);
+				for(int i=0; i<SetHelper.Num(); ++i)
+				{
+					PropertiesToExamine.Add({SetHelper.GetElementProperty(), SetHelper.GetElementPtr(i)});
+				}
+			}
+			else if(const FMapProperty* MapProperty = CastField<FMapProperty>(TargetProperty))
+			{
+				OutResultIcon = FSlateIcon("EditorStyle", "Kismet.VariableList.MapValueTypeIcon");
+				FScriptMapHelper MapHelper(MapProperty, TargetPropertyAddress);
+				for(int i=0; i<MapHelper.Num(); ++i)
+				{
+					PropertiesToExamine.Add({MapHelper.GetKeyProperty(), MapHelper.GetKeyPtr(i)});
+					PropertiesToExamine.Add({MapHelper.GetValueProperty(), MapHelper.GetValuePtr(i)});
+				}
+			}
+			else
+			{
+				OutResultIcon = FSlateIcon("EditorStyle", "Kismet.VariableList.TypeIcon");
+				PropertiesToExamine.Add({TargetProperty, TargetPropertyAddress});
+			}
+
+			for (const PropertyAndAddressTuple& Tuple : PropertiesToExamine)
+			{
+				if( const FObjectPropertyBase* ObjectProperty = CastField<FObjectPropertyBase>(Tuple.Property) )
+				{
+					if(const UObject* Object = ObjectProperty->GetObjectPropertyValue(Tuple.ValueAddress))
 					{
-						FoundPackages.AddUnique(Package);
+						if(UPackage* Package = Object->GetPackage())
+						{
+							FoundPackages.AddUnique(Package);
+						}
 					}
 				}
 			}
 		}
 	}
-
+	
 	const TArray<UObject*>* ScriptAndPropertyObjectReferences = nullptr;
 	if(const FObjectPropertyBase* ObjectProperty = CastField<FObjectPropertyBase>(TargetProperty))
 	{
@@ -414,48 +464,55 @@ TArray<UPackage*> FHardReferenceFinderSearchData::FindPackagesForProperty(FSlate
 	return FoundPackages;
 }
 
-void FHardReferenceFinderSearchData::SearchBlueprintProperties(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap,	const FAssetRegistryModule& AssetRegistryModule, UBlueprint* Blueprint) const
+void FHardReferenceFinderSearchData::SearchBlueprintClassProperties(TMap<FName, FHRFTreeViewItemPtr>& OutPackageMap,	const FAssetRegistryModule& AssetRegistryModule, UBlueprint* Blueprint) const
 {
 	for( FProperty* Property : TFieldRange<FProperty>(Blueprint->GeneratedClass, EFieldIteratorFlags::ExcludeSuper))
 	{
 		UBlueprint* FoundBlueprint = nullptr;
 		const FName VarName = Property->GetFName();
 		const int32 VarIndex = FBlueprintEditorUtils::FindNewVariableIndexAndBlueprint(Blueprint, VarName, FoundBlueprint);
-
-		FSlateIcon ResultIcon;
-		TArray<UPackage*> ReferencedPackages = FindPackagesForProperty(ResultIcon, OutPackageMap, AssetRegistryModule, Blueprint, Property); 
-
-		// If this is a component reference, fetch the appropriate component icon to use 
-		if(const FObjectPropertyBase* ObjectProperty = CastField<FObjectPropertyBase>(Property))
+		const bool bIsVar = VarIndex != INDEX_NONE;
+		
+		bool bSkipProperty = false;
+		if(!bIsVar)
 		{
-			if(const UObject* Object = ObjectProperty->PropertyClass->GetDefaultObject())
+			if(const FObjectPropertyBase* ObjectProperty = CastField<FObjectPropertyBase>(Property))
 			{
-				if(const UActorComponent* ActorComponentTemplate = Cast<UActorComponent>(Object))
+				const bool bIsActorComponentClass = ObjectProperty->PropertyClass->IsChildOf(UActorComponent::StaticClass());
+				if(bIsActorComponentClass)
 				{
-					ResultIcon = FSlateIconFinder::FindIconForClass(ActorComponentTemplate->GetClass(), TEXT("SCS.Component"));
+					// Actor components aren't initialized in the CDO so parsing them here isn't exhaustive.
+					// SearchSimpleConstructionScript() handles these, so skip these properties here. 
+					bSkipProperty = true;
 				}
 			}
 		}
-		
-		for(const UPackage* Package : ReferencedPackages)
+
+		if(!bSkipProperty)
 		{
-			if(const FHRFTreeViewItemPtr Result = CheckAddPackageResult(OutPackageMap, AssetRegistryModule, Package))
+			FSlateIcon ResultIcon;
+			TArray<UPackage*> ReferencedPackages = FindPackagesForProperty(ResultIcon, Blueprint->GeneratedClass->GetDefaultObject(), Property); 
+
+			for(const UPackage* Package : ReferencedPackages)
 			{
-				if(VarIndex != INDEX_NONE)
+				if(const FHRFTreeViewItemPtr Result = CheckAddPackageResult(OutPackageMap, AssetRegistryModule, Package))
 				{
-					const FBPVariableDescription& Description = Blueprint->NewVariables[VarIndex];
-					if( UEdGraphSchema_K2 const* Schema = GetDefault<UEdGraphSchema_K2>() )
+					if(bIsVar)
 					{
-						Result->IconColor = Schema->GetPinTypeColor(Description.VarType);
+						const FBPVariableDescription& Description = Blueprint->NewVariables[VarIndex];
+						if( UEdGraphSchema_K2 const* Schema = GetDefault<UEdGraphSchema_K2>() )
+						{
+							Result->IconColor = Schema->GetPinTypeColor(Description.VarType);
+						}
+						Result->SlateIcon = ResultIcon;
+						Result->Name = FText::Format(LOCTEXT("MemberVariable","{0} (Member Variable)"), FText::FromName(Description.VarName));
+						Result->Tooltip = LOCTEXT("MemberVariableTooltip","Blueprint member variable");
 					}
-					Result->SlateIcon = ResultIcon;
-					Result->Name = FText::Format(LOCTEXT("MemberVariable","{0} (Member Variable)"), FText::FromName(Description.VarName));
-					Result->Tooltip = LOCTEXT("MemberVariableTooltip","Blueprint member variable");
-				}
-				else
-				{
-					Result->SlateIcon = ResultIcon;
-					Result->Name = FText::Format(LOCTEXT("OtherPropertyName", "{0}"), FText::FromName(VarName));
+					else
+					{
+						Result->SlateIcon = ResultIcon;
+						Result->Name = FText::Format(LOCTEXT("OtherPropertyName", "{0}"), FText::FromName(VarName));
+					}
 				}
 			}
 		}
