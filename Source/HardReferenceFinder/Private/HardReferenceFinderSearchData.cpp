@@ -441,6 +441,13 @@ TArray<UPackage*> FHardReferenceFinderSearchData::FindPackagesForProperty(FSlate
 	if(const FObjectPropertyBase* ObjectProperty = CastField<FObjectPropertyBase>(TargetProperty))
 	{
 		ScriptAndPropertyObjectReferences = &ObjectProperty->PropertyClass->ScriptAndPropertyObjectReferences;
+		if(ObjectProperty->PropertyClass)
+		{
+			if(UPackage* Package = ObjectProperty->PropertyClass->GetPackage())
+			{
+				FoundPackages.AddUnique(Package);
+			}
+		}
 	}
 	else if(const FStructProperty* StructProperty = CastField<FStructProperty>(TargetProperty))
 	{
