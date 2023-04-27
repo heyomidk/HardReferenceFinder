@@ -22,6 +22,7 @@ private:
 	TSet<FName> GetCollapsedPackages() const;
 	void InitiateSearch();
 	FReply OnRefreshClicked();
+	bool BringAttentionToSCSNode(const FName& SCSIdentifier) const;
 	void OnDoubleClickTreeEntry(TSharedPtr<FHRFTreeViewItem> Item) const;
 	void OnGetChildren(FHRFTreeViewItemPtr InItem, TArray< FHRFTreeViewItemPtr >& OutChildren) const;
 	TSharedRef<ITableRow> OnGenerateRow(FHRFTreeViewItemPtr Item, const TSharedRef<STableViewBase>& TableViewBase) const;
