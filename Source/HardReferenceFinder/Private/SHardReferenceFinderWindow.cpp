@@ -186,7 +186,11 @@ bool SHardReferenceFinderWindow::BringAttentionToSCSNode(const FName& SCSIdentif
 		{
 			if (const UActorComponent* Component = Node->GetActualComponentTemplate(GeneratedClass))
 			{
+#if ENGINE_MAJOR_VERSION < 5
+				BlueprintGraph.Pin()->FindAndSelectSCSEditorTreeNode(Component, false);
+#else
 				BlueprintGraph.Pin()->FindAndSelectSubobjectEditorTreeNode(Component, false);
+#endif
 			}
 
 			return true;
