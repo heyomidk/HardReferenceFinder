@@ -1,8 +1,11 @@
 ﻿
 #include "SHardReferenceFinderWindow.h"
 #include "BlueprintEditor.h"
+#include "BlueprintEditorTabs.h"
 #include "GraphEditorSettings.h"
 #include "HardReferenceFinderSearchData.h"
+#include "Engine/SCS_Node.h"
+#include "Engine/SimpleConstructionScript.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Widgets/Input/SButton.h"
@@ -147,6 +150,56 @@ FReply SHardReferenceFinderWindow::OnRefreshClicked()
 	return FReply::Handled();
 }
 
+bool SHardReferenceFinderWindow::BringAttentionToSCSNode(const FName& SCSIdentifier) const
+{
+	if(!SCSIdentifier.IsValid())
+	{
+		return false;
+	}
+	
+	if(!BlueprintGraph.IsValid())
+	{
+		return false;
+	}
+	
+	const UBlueprint* Blueprint = BlueprintGraph.Pin()->GetBlueprintObj();
+	if(Blueprint == nullptr)
+	{
+		return false;
+	}
+
+	UBlueprintGeneratedClass* GeneratedClass = Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass);
+	if(GeneratedClass == nullptr)
+	{
+		return false;
+	}
+	
+	// Open Viewport Tab
+	BlueprintGraph.Pin()->FocusWindow();
+	BlueprintGraph.Pin()->GetTabManager()->TryInvokeTab(FBlueprintEditorTabs::SCSViewportID);
+
+	// Find and Select the Component in the Viewport tab view
+	const TArray<USCS_Node*>& Nodes = Blueprint->SimpleConstructionScript->GetAllNodes();
+	for (USCS_Node* Node : Nodes)
+	{
+		if (Node->GetFName() == SCSIdentifier)
+		{
+			if (const UActorComponent* Component = Node->GetActualComponentTemplate(GeneratedClass))
+			{
+#if ENGINE_MAJOR_VERSION < 5
+				BlueprintGraph.Pin()->FindAndSelectSCSEditorTreeNode(Component, false);
+#else
+				BlueprintGraph.Pin()->FindAndSelectSubobjectEditorTreeNode(Component, false);
+#endif
+			}
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
 void SHardReferenceFinderWindow::OnDoubleClickTreeEntry(TSharedPtr<FHRFTreeViewItem> Item) const
 {
 	if(Item.IsValid() && BlueprintGraph.IsValid())
@@ -156,6 +209,10 @@ void SHardReferenceFinderWindow::OnDoubleClickTreeEntry(TSharedPtr<FHRFTreeViewI
 			if( const UEdGraphNode* GraphNode = FBlueprintEditorUtils::GetNodeByGUID(BlueprintObj, Item->NodeGuid) )
 			{
 				FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(GraphNode);
+			}
+			else if(Item->SCSIdentifier.IsValid())
+			{
+				BringAttentionToSCSNode(Item->SCSIdentifier);
 			}
 		}
 	}

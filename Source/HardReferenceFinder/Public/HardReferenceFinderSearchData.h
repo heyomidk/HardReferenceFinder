@@ -21,6 +21,7 @@ public:
 	FText Name;
 	FText Tooltip;
 	FGuid NodeGuid;
+	FName SCSIdentifier = NAME_None;
 	FSlateIcon SlateIcon;
 	FLinearColor IconColor = FLinearColor::White;
 	TArray<TSharedPtr<FHRFTreeViewItem>> Children;

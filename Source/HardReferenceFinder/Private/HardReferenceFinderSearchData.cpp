@@ -283,6 +283,7 @@ void FHardReferenceFinderSearchData::SearchSimpleConstructionScript(TMap<FName, 
 			{
 				Result->SlateIcon = FSlateIconFinder::FindIconForClass(SCSNode->ComponentClass, TEXT("SCS.Component"));
 				Result->Name = FText::Format(LOCTEXT("ComponentReference", "{0}"), FText::FromName(VarName));
+				Result->SCSIdentifier = SCSNode->GetFName();
 			}
 		}
 	}
