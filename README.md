@@ -24,5 +24,8 @@ Open any blueprint with a graph or function view, then select *Window -> Hard Re
 
 # Known Issues
 - After modifying a blueprint, you have to compile/save it before 'Refresh' will display the updated list of references.
-- Has some limited ability to detect references coming from actor components, function arguments
+- Isn't identifying references from:
+  - function arguments
+  - properties nested in a struct
+  - function graphs within a blueprint function library
 - Note: This is still an initial version; the tool is unable to identify the source of some package references in a blueprint.  Bug reports/pull requests/methods for detecting unidentified references are appreciated.
