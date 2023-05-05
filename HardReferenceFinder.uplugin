@@ -1,7 +1,7 @@
 {
 	"FileVersion": 3,
 	"Version": 1,
-	"VersionName": "0.3.0",
+	"VersionName": "0.3.1",
 	"FriendlyName": "HardReferenceFinder",
 	"Description": "Plugin that shows hard referencing nodes in a blueprint graph.",
 	"Category": "Other",
