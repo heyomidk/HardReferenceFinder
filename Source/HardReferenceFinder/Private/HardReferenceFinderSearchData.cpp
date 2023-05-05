@@ -7,6 +7,7 @@
 #include "K2Node_DynamicCast.h"
 #include "K2Node_FunctionEntry.h"
 #include "Kismet2/BlueprintEditorUtils.h"
+#include "Misc/EngineVersionComparison.h"
 #include "Styling/SlateIconFinder.h"
 
 #if ENGINE_MAJOR_VERSION < 5
@@ -574,10 +575,17 @@ void FHardReferenceFinderSearchData::GetAssetForPackages(const TArray<FName>& Pa
 
 bool FHardReferenceFinderSearchData::TryGetAssetPackageData(FName PathName, FAssetPackageData& OutPackageData, const FAssetRegistryModule& AssetRegistryModule) const
 {
-#if ENGINE_MAJOR_VERSION < 5
+#if UE_VERSION_OLDER_THAN(5, 0, 0)
 	if(const FAssetPackageData* pAssetPackageData = AssetRegistryModule.Get().GetAssetPackageData(PathName))
 	{
 		OutPackageData = *pAssetPackageData;
+		return true;
+	}
+#elif UE_VERSION_OLDER_THAN(5, 1, 0)
+	const TOptional<FAssetPackageData> pAssetPackageData = AssetRegistryModule.Get().GetAssetPackageDataCopy(PathName);
+	if (pAssetPackageData.IsSet())
+	{
+		OutPackageData = pAssetPackageData.GetValue();
 		return true;
 	}
 #else
@@ -592,7 +600,7 @@ bool FHardReferenceFinderSearchData::TryGetAssetPackageData(FName PathName, FAss
 
 FString FHardReferenceFinderSearchData::GetAssetTypeName(const FAssetData& AssetData) const
 {
-#if ENGINE_MAJOR_VERSION < 5
+#if UE_VERSION_OLDER_THAN(5, 1, 0)
 	return AssetData.AssetClass.ToString();
 #else
 	return AssetData.AssetClassPath.GetAssetName().ToString();
@@ -604,7 +612,7 @@ FAssetData FHardReferenceFinderSearchData::GetAssetDataForObject(const UObject* 
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	FString ObjectPath = Object->GetPathName();
 
-#if ENGINE_MAJOR_VERSION < 5
+#if UE_VERSION_OLDER_THAN(5, 1, 0)
 	return AssetRegistryModule.Get().GetAssetByObjectPath(*ObjectPath);
 #else
 	return AssetRegistryModule.Get().GetAssetByObjectPath(FSoftObjectPath(ObjectPath));

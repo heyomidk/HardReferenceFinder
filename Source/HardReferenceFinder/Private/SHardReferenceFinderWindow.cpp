@@ -8,9 +8,10 @@
 #include "Engine/SimpleConstructionScript.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
+#include "Misc/EngineVersionComparison.h"
 #include "Widgets/Input/SButton.h"
 
-#if ENGINE_MAJOR_VERSION < 5
+#if UE_VERSION_OLDER_THAN(5, 1, 0)
 #include "EditorStyleSet.h"
 #endif
 
@@ -282,7 +283,7 @@ TSharedRef<ITableRow> SHardReferenceFinderWindow::OnGenerateRow(FHRFTreeViewItem
 
 const FSlateBrush* SHardReferenceFinderWindow::GetBrush_MenuBackground() const
 {
-#if ENGINE_MAJOR_VERSION < 5
+#if UE_VERSION_OLDER_THAN(5, 1, 0)
 	return FEditorStyle::GetBrush("Menu.Background");
 #else
 	return FAppStyle::Get().GetBrush("Brushes.Recessed");
@@ -291,7 +292,7 @@ const FSlateBrush* SHardReferenceFinderWindow::GetBrush_MenuBackground() const
 
 const FSlateBrush* SHardReferenceFinderWindow::GetBrush_RefreshIcon() const
 {
-#if ENGINE_MAJOR_VERSION < 5
+#if UE_VERSION_OLDER_THAN(5, 1, 0)
 	return FEditorStyle::GetBrush("Icons.Refresh");
 #else
 	return FAppStyle::GetBrush("Icons.Refresh");
@@ -300,7 +301,7 @@ const FSlateBrush* SHardReferenceFinderWindow::GetBrush_RefreshIcon() const
 
 const FTableRowStyle* SHardReferenceFinderWindow::GetStyle_HeaderRow() const
 {
-#if ENGINE_MAJOR_VERSION < 5
+#if UE_VERSION_OLDER_THAN(5, 1, 0)
 	return &FCoreStyle::Get().GetWidgetStyle<FTableRowStyle>("TableView.Row");
 #else
 	return &FAppStyle::Get().GetWidgetStyle<FTableRowStyle>("ShowParentsTableView.Row");

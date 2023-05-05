@@ -49,20 +49,22 @@ public class HardReferenceFinder : ModuleRules
 			}
 			);
 
-		if (Target.Version.MajorVersion < 5)
-		{
-			PrivateDependencyModuleNames.AddRange(
-				new string[]
-				{
-					"EditorStyle", // only used in <UE4
-				});
-		}
-		else // MajorVersion >= 5
+		if (Target.Version.MajorVersion >= 5)
 		{
 			PrivateDependencyModuleNames.AddRange(
 				new string[]
 				{
 					"SubobjectEditor",
+				});
+		}
+
+		if (Target.Version.MajorVersion < 5 
+		|| Target.Version.MajorVersion == 5 && Target.Version.MinorVersion < 1)
+		{
+			PrivateDependencyModuleNames.AddRange(
+				new string[]
+				{
+					"EditorStyle", // only used in <UE5.0
 				});
 		}
 		
