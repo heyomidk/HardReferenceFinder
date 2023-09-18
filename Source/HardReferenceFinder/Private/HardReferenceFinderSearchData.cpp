@@ -444,13 +444,11 @@ TArray<UPackage*> FHardReferenceFinderSearchData::FindPackagesForProperty(FSlate
 		}
 	}
 
-
-#if ENGINE_MAJOR_VERSION==5 && ENGINE_MINOR_VERSION>=3
-	typedef const TArray<TObjectPtr<UObject>>* FObjectArray;
-#else
+#if UE_VERSION_OLDER_THAN(5,3,0)
 	typedef const TArray<UObject*>* FObjectArray;
+#else
+	typedef const TArray<TObjectPtr<UObject>>* FObjectArray;
 #endif
-	
 	FObjectArray ScriptAndPropertyObjectReferences = nullptr;
 	if(const FObjectPropertyBase* ObjectProperty = CastField<FObjectPropertyBase>(TargetProperty))
 	{
