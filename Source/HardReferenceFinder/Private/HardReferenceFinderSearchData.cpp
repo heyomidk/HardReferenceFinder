@@ -125,7 +125,12 @@ UObject* FHardReferenceFinderSearchData::GetObjectContext(TWeakPtr<FBlueprintEdi
 	SSubobjectEditor* SubobjectEditorWidget = SubobjectEditorPtr.Get();
 	if(SubobjectEditorWidget == nullptr)
 	{
-		return nullptr;
+		class BlueprintEditorEditingObject_AccessHack : public FBlueprintEditor
+		{
+		public:
+			UObject* GetEditingObject_Expose() const { return GetEditingObject(); }
+		};
+		return static_cast<BlueprintEditorEditingObject_AccessHack*>(BlueprintEditor.Pin().Get())->GetEditingObject_Expose();
 	}
 		
 	UObject* Object = SubobjectEditorWidget->GetObjectContext();
