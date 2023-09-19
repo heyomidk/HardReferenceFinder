@@ -169,6 +169,11 @@ bool SHardReferenceFinderWindow::BringAttentionToSCSNode(const FName& SCSIdentif
 		return false;
 	}
 
+	if(Blueprint->SimpleConstructionScript == nullptr)
+	{
+		return false;	
+	}
+
 	UBlueprintGeneratedClass* GeneratedClass = Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass);
 	if(GeneratedClass == nullptr)
 	{
