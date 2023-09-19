@@ -113,29 +113,12 @@ UObject* FHardReferenceFinderSearchData::GetObjectContext(TWeakPtr<FBlueprintEdi
 		return nullptr;
 	}
 
-#if ENGINE_MAJOR_VERSION < 5
-	TSharedPtr<class SSCSEditor> SCSEditorPtr = BlueprintEditor.Pin()->GetSCSEditor();
-	if(!SCSEditorPtr.IsValid())
+	class BlueprintEditorEditingObject_AccessHack : public FBlueprintEditor
 	{
-		return nullptr;
-	}
-	return SCSEditorPtr->GetActorContext();
-#else
-	TSharedPtr<SSubobjectEditor> SubobjectEditorPtr = BlueprintEditor.Pin()->GetSubobjectEditor();
-	SSubobjectEditor* SubobjectEditorWidget = SubobjectEditorPtr.Get();
-	if(SubobjectEditorWidget == nullptr)
-	{
-		class BlueprintEditorEditingObject_AccessHack : public FBlueprintEditor
-		{
-		public:
-			UObject* GetEditingObject_Expose() const { return GetEditingObject(); }
-		};
-		return static_cast<BlueprintEditorEditingObject_AccessHack*>(BlueprintEditor.Pin().Get())->GetEditingObject_Expose();
-	}
-		
-	UObject* Object = SubobjectEditorWidget->GetObjectContext();
-	return Object;
-#endif
+	public:
+		UObject* GetEditingObject_Expose() const { return GetEditingObject(); }
+	};
+	return static_cast<BlueprintEditorEditingObject_AccessHack*>(BlueprintEditor.Pin().Get())->GetEditingObject_Expose();
 }
 
 void FHardReferenceFinderSearchData::GetBlueprintDependencies(TArray<FName>& OutPackageDependencies, FAssetRegistryModule& AssetRegistryModule, TWeakPtr<FBlueprintEditor> BlueprintEditor) const
@@ -443,8 +426,13 @@ TArray<UPackage*> FHardReferenceFinderSearchData::FindPackagesForProperty(FSlate
 			}
 		}
 	}
-	
-	const TArray<UObject*>* ScriptAndPropertyObjectReferences = nullptr;
+
+#if UE_VERSION_OLDER_THAN(5,3,0)
+	typedef const TArray<UObject*>* FObjectArray;
+#else
+	typedef const TArray<TObjectPtr<UObject>>* FObjectArray;
+#endif
+	FObjectArray ScriptAndPropertyObjectReferences = nullptr;
 	if(const FObjectPropertyBase* ObjectProperty = CastField<FObjectPropertyBase>(TargetProperty))
 	{
 		ScriptAndPropertyObjectReferences = &ObjectProperty->PropertyClass->ScriptAndPropertyObjectReferences;
