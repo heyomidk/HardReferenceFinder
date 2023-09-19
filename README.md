@@ -4,7 +4,7 @@ An open-source editor plugin for Unreal Engine 5 that identifies hard references
 
 The plugin allows you to summon a window which links to the various function calls, variables, graph pins, etc that are causing hard package references to other assets. Results are grouped by package and sorted by size, from largest to smallest.
 
-Built on UE 5.1 and backwards compatible with UE 4.27.
+Compatible with Unreal Engine versions 5.3, 5.2, 5.1, 5.0 and 4.27.
 
 ![Image showing plugin usage in an example blueprint](Documentation/main-image.png)
 
@@ -27,5 +27,4 @@ Open any blueprint with a graph or function view, then select *Window -> Hard Re
 - Isn't identifying references from:
   - function arguments
   - properties nested in a struct
-  - function graphs within a blueprint function library
 - Note: This is still an initial version; the tool is unable to identify the source of some package references in a blueprint.  Bug reports/pull requests/methods for detecting unidentified references are appreciated.
